@@ -462,6 +462,20 @@ function Fase21View({ data }: { data: Fase21Data }) {
           <Row label="Versión agresiva" value={`«${data.versionAgresiva}»`} />
           <Row label="Versión consultiva" value={`«${data.versionConsultiva}»`} />
           <Row label="Tesis unificada" value={`«${data.tesisUnificada}»`} />
+          {"reglaEjecucion" in data && data.reglaEjecucion && (
+            <Row
+              label="Regla de ejecución — Pairing × Consistencia"
+              value={data.reglaEjecucion}
+            />
+          )}
+          {"senalesDeExito" in data && data.senalesDeExito && (
+            <Row
+              label="Señal de que funciona"
+              value={data.senalesDeExito.map((s, i) => (
+                <span key={i} className="block italic">«{s}»</span>
+              ))}
+            />
+          )}
         </dl>
       )}
       {proceso && (
@@ -668,7 +682,11 @@ function Fase6View({ data, compact }: { data: Fase6Data; compact: boolean }) {
         <div key={si}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
             Semana {si + 1}
-            {si === 3 ? " — FOMO del mes" : ""}
+            {data.etiquetasSemana?.[si]
+              ? ` — ${data.etiquetasSemana[si]}`
+              : si === 3
+                ? " — FOMO del mes"
+                : ""}
           </p>
           <div className={cn("grid gap-2", !compact && "sm:grid-cols-2")}>
             {semana.map((d) => (

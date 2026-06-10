@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   // pipeline por semanas del servidor (tool generar_calendario).
   const salida =
     phaseId === "fase_6"
-      ? `# INSTRUCCIÓN DE SALIDA (CALENDARIO)\nTu única salida estructurada es la tool \`generar_calendario\`. Cuando el cliente haya confirmado EXPLÍCITAMENTE el FOMO real del mes, llámala pasando solo ese FOMO (descripcion, tipo, confirmedByClient=true). El servidor construye el calendario semana a semana y el cliente ve el progreso en pantalla. NO escribas tú los 31 días, ni en texto ni en JSON. Si la tool devuelve ok=false, explica en una frase qué falló y ofrece reintentar (el avance parcial se conserva). Cuando devuelva ok=true, avisa al cliente que revise la tarjeta de propuesta y use los botones Aprobar o Pedir cambios.`
+      ? `# INSTRUCCIÓN DE SALIDA (CALENDARIO)\nTu única salida estructurada es la tool \`generar_calendario\`. Antes de llamarla necesitas DOS confirmaciones del cliente: (1) el FOMO real del mes — si dice que no hay, NO aceptes el "no": proponle 3 opciones legítimas según su negocio y guíalo a comprometerse con una verificable; (2) el par de CTAs canónicos de conversión del proyecto (máximo 4 palabras cada uno; con automatización de DMs usa keywords tipo "Comenta YO" / "Escríbeme SISTEMA"; con venta por link, "Ingresa ya" / "Escríbenos"). Llama la tool con { fomo: {descripcion, tipo, confirmedByClient: true}, ctas: {primario, secundario} }. El servidor construye el calendario semana a semana siguiendo el orden del master y el cliente ve el progreso. NO escribas tú los 31 días. Si la tool devuelve ok=false, explica en una frase qué falló y ofrece reintentar (el avance parcial se conserva). Con ok=true, avisa que revise la tarjeta de propuesta.`
       : `# INSTRUCCIÓN DE SALIDA\nCuando el cliente apruebe el contenido de esta fase, o cuando tú consideres que está listo para aprobación, llama a la tool \`propose_section\` con el JSON según el schema. Tras llamarla con éxito, avisa al cliente en un mensaje breve que revise la tarjeta de propuesta y use los botones Aprobar o Pedir cambios. Si la tool devuelve errores de validación, corrige el contenido y vuelve a llamarla sin molestar al cliente con detalles técnicos.`;
 
   const system = [
@@ -164,6 +164,15 @@ export async function POST(req: NextRequest) {
   const calendarContext = buildApprovedContext(
     approved.filter((s) => CALENDAR_CTX_PHASES.includes(s.phaseId)),
   );
+  // Insumos canónicos del pipeline del calendario.
+  const personaVisible =
+    (approved.find((s) => s.phaseId === "fase_0")?.data as
+      | { personaVisible?: string }
+      | undefined)?.personaVisible ?? "COMPLETA";
+  const calendarMagnets =
+    (approved.find((s) => s.phaseId === "fase_5")?.data as
+      | { magnets?: Array<{ codigo: string; ctaExacto: string }> }
+      | undefined)?.magnets ?? [];
 
   const sectionSchema = sectionToolSchema(phaseId, eje);
   if (!sectionSchema) {
@@ -179,7 +188,7 @@ export async function POST(req: NextRequest) {
             description:
               "Construye el calendario de 31 días por semanas en el servidor. Llamar SOLO cuando el cliente confirmó explícitamente el FOMO real del mes.",
             inputSchema: fase6FomoToolSchema,
-            execute: async ({ fomo }: z.infer<typeof fase6FomoToolSchema>) => {
+            execute: async ({ fomo, ctas }: z.infer<typeof fase6FomoToolSchema>) => {
               if (!fomo.confirmedByClient) {
                 return {
                   ok: false,
@@ -214,6 +223,9 @@ export async function POST(req: NextRequest) {
                   modelSpec: project.modelProvider,
                   contexto: calendarContext,
                   fomo,
+                  ctas,
+                  personaVisible,
+                  magnets: calendarMagnets,
                   prohibido: prohibitedBlock || undefined,
                   onProgress: writeProgress,
                 });

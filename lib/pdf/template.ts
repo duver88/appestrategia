@@ -137,13 +137,30 @@ function explainBox(text: string): string {
 function ejeBlock(d: Fase21Data, brand: Fase22Data): string {
   let body = "";
   if (d.tipo === "CREENCIA_CONTRARIA" || d.tipo === "COMBINACION") {
+    // Campos del ajuste de calidad (opcionales en documentos antiguos).
+    const extra = d as unknown as {
+      reglaEjecucion?: string;
+      senalesDeExito?: string[];
+    };
     body += `
       <h3>La narrativa que domina el mercado</h3>
       <p>${esc(d.narrativaDominante)}</p>
       <h3>Nuestra posición</h3>
       <div class="card"><span class="label">Versión agresiva</span>${esc(d.versionAgresiva)}</div>
       <div class="card"><span class="label">Versión consultiva</span>${esc(d.versionConsultiva)}</div>
-      <div class="quote">${esc(d.tesisUnificada)}</div>`;
+      <div class="quote">${esc(d.tesisUnificada)}</div>
+      ${
+        extra.reglaEjecucion
+          ? `<div class="card"><span class="label">Regla de ejecución — Pairing × Consistencia = Asociación</span>${esc(extra.reglaEjecucion)}</div>`
+          : ""
+      }
+      ${
+        extra.senalesDeExito && extra.senalesDeExito.length > 0
+          ? `<div class="card"><span class="label">Señal de que funciona</span>DMs que dicen cosas como: ${extra.senalesDeExito
+              .map((s) => `«${esc(s)}»`)
+              .join(" o ")}. Eso es la tesis devolviéndose.</div>`
+          : ""
+      }`;
   }
   if (d.tipo === "PROCESO" || d.tipo === "COMBINACION") {
     body += `
@@ -397,12 +414,18 @@ function calendarBlock(cal: Fase6Data): string {
       ${semanas
         .map((semana, si) => {
           const isFomo = si === 3;
+          // Etiqueta estratégica de la semana (la 4 ya integra el FOMO en
+          // positivo). Fallback para calendarios previos al ajuste: nunca
+          // un encabezado tipo "sin FOMO".
+          const etiqueta =
+            cal.etiquetasSemana?.[si] ??
+            (isFomo ? `${esc(cal.fomo.tipo)}: ${esc(cal.fomo.descripcion)}` : "");
           return `
         <div class="week">
-          <p class="week-head${isFomo ? " fomo" : ""}">Semana ${si + 1}${isFomo ? ` — ${esc(cal.fomo.tipo)}: ${esc(cal.fomo.descripcion)}` : ""}</p>
+          <p class="week-head${isFomo ? " fomo" : ""}">Semana ${si + 1}${etiqueta ? ` — ${esc(etiqueta)}` : ""}</p>
           <table>
             <thead>
-              <tr><th>Día</th><th>Uso</th><th>Hook</th><th>Idea central</th><th>Formato</th><th>Magnet</th><th>CTA</th></tr>
+              <tr><th>Día</th><th>Uso</th><th>Ángulo</th><th>Hook</th><th>Idea central</th><th>Formato</th><th>Magnet</th><th>CTA</th></tr>
             </thead>
             <tbody>
               ${semana
@@ -411,7 +434,8 @@ function calendarBlock(cal: Fase6Data): string {
                 <tr>
                   <td><strong>${x.dia}</strong><br/><span class="muted">${esc(x.diaSemana)}</span></td>
                   <td><span class="pill" style="background:${USO_COLOR[x.uso]}">${USO_LABEL[x.uso]}</span></td>
-                  <td><strong>«${esc(x.hook)}»</strong><br/><span class="muted">${esc(x.angulo)}</span></td>
+                  <td>${esc(x.angulo)}</td>
+                  <td><strong>«${esc(x.hook)}»</strong></td>
                   <td>${esc(x.ideaCentral)}</td>
                   <td>${esc(x.formato)}</td>
                   <td>${x.magnet ? esc(x.magnet) : "—"}</td>

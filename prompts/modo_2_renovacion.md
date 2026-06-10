@@ -15,7 +15,8 @@ La arquitectura de marca (Mes 1) ya está construida y aparece resumida arriba c
 El contexto incluye los hooks e ideas del calendario del mes anterior marcados como "PROHIBIDO REPETIR". Ninguna idea ni hook del mes anterior puede repetirse, ni siquiera parafraseado.
 
 ## Salida
-La misma de la Parte 6: cuando el cliente confirme el FOMO real del mes nuevo,
-llama a la tool `generar_calendario` con SOLO el FOMO ({ descripcion, tipo,
-confirmedByClient: true }). El servidor construye el calendario semana a semana
-respetando el bloque "PROHIBIDO REPETIR"; no escribas tú los 31 días.
+La misma de la Parte 6: confirma el FOMO real del mes nuevo (con el modo
+construcción si dice que no hay) y el par de CTAs canónicos, y llama a la tool
+`generar_calendario` con { fomo: {descripcion, tipo, confirmedByClient: true},
+ctas: {primario, secundario} }. El servidor construye el calendario semana a
+semana respetando el bloque "PROHIBIDO REPETIR"; no escribas tú los 31 días.

@@ -6,7 +6,16 @@ import {
   fase6Schema,
   type Fase6Data,
 } from "@/lib/schemas";
-import { validateCalendar } from "@/lib/schemas/calendar-validators";
+import {
+  validateCalendar,
+  type CalendarValidationContext,
+} from "@/lib/schemas/calendar-validators";
+import {
+  ORDEN_MASTER,
+  ETIQUETAS_SEMANA_BASE,
+  allowedFormats,
+  magnetKeyword,
+} from "@/lib/calendar/catalogs";
 import { getSetting, DEFAULT_PRICE_TABLE, type PriceEntry } from "@/lib/settings";
 
 /**
@@ -55,6 +64,12 @@ export interface GenerateCalendarOptions {
   /** Resumen del negocio (tono, promesa, tesis, casos, hooks, magnets). */
   contexto: string;
   fomo: CalendarFomo;
+  /** Par canónico de CTAs de conversión del proyecto (B4). */
+  ctas: { primario: string; secundario: string };
+  /** COMPLETA | PARCIAL | NINGUNA — filtra el catálogo de formatos. */
+  personaVisible?: string;
+  /** Magnets aprobados (fase_5) para keywords exactas. */
+  magnets?: Array<{ codigo: string; ctaExacto: string }>;
   /** MODO_2: hooks/ideas del mes anterior prohibidos. */
   prohibido?: string;
   onProgress: (p: CalendarProgress) => void;
@@ -72,6 +87,8 @@ export type GenerateCalendarResult =
 function weekdayOf(dia: number): string {
   return WEEKDAYS[(dia - 1) % 7];
 }
+
+const norm = (s: string) => s.trim().toLowerCase();
 
 function usedCounts(days: Dia[], key: "angulo" | "formato"): Map<string, number> {
   const map = new Map<string, number>();
@@ -92,10 +109,16 @@ const MIN_FORMATS_BY_WEEKS = [3, 5, 6, 8];
  * TODAS las demás semanas ya fijadas (anteriores Y posteriores), para que
  * regenerar una semana culpable nunca rompa los topes globales.
  */
+export interface WeekValidationCtx {
+  ctas?: { primario: string; secundario: string };
+  magnets?: Array<{ codigo: string; ctaExacto: string }>;
+}
+
 export function validateWeek(
   dias: Dia[],
   weekIndex: number,
   otherDays: Dia[], // días de las demás semanas fijadas
+  ctx: WeekValidationCtx = {},
 ): string[] {
   const [from, to] = FASE6_WEEK_RANGES[weekIndex];
   const errors: string[] = [];
@@ -137,6 +160,55 @@ export function validateWeek(
     }
   }
 
+  // Orden del master: el USO de cada día es fijo; el ángulo admite máximo
+  // 2 sustituciones por semana (dentro del catálogo, mismo uso).
+  let substitutions = 0;
+  for (const d of dias) {
+    const master = ORDEN_MASTER[d.dia - 1];
+    if (!master) continue;
+    if (d.uso !== master.uso) {
+      errors.push(
+        `Día ${d.dia}: el uso debe ser ${master.uso} según el orden del master (recibido ${d.uso}).`,
+      );
+    } else if (norm(d.angulo) !== norm(master.angulo)) {
+      substitutions++;
+    }
+  }
+  if (substitutions > 2) {
+    errors.push(
+      `${substitutions} sustituciones de ángulo respecto al orden del master en esta semana (máximo 2): respeta el plan día a día.`,
+    );
+  }
+
+  // CTAs canónicos (conversión sin magnet) y keywords de magnet.
+  if (ctx.ctas) {
+    const canon = [norm(ctx.ctas.primario), norm(ctx.ctas.secundario)];
+    for (const d of dias) {
+      if (d.uso === "CONVERSION" && !d.magnet && !canon.includes(norm(d.cta))) {
+        errors.push(
+          `Día ${d.dia} (conversión): el cta debe ser EXACTAMENTE "${ctx.ctas.primario}" o "${ctx.ctas.secundario}" (recibido: "${d.cta}").`,
+        );
+      }
+    }
+  }
+  if (ctx.magnets) {
+    const byCode = new Map(ctx.magnets.map((m) => [norm(m.codigo), m]));
+    for (const d of dias) {
+      if (!d.magnet) continue;
+      const m = byCode.get(norm(d.magnet));
+      if (!m) {
+        errors.push(`Día ${d.dia}: magnet "${d.magnet}" no existe en los aprobados.`);
+        continue;
+      }
+      const kw = magnetKeyword(m.ctaExacto);
+      if (kw && !norm(d.cta).includes(norm(kw))) {
+        errors.push(
+          `Día ${d.dia}: el cta debe incluir la keyword exacta del magnet ${m.codigo} («${kw}»).`,
+        );
+      }
+    }
+  }
+
   // Diversidad acumulada: con k semanas fijadas deben existir los mínimos.
   const all = [...otherDays, ...dias];
   const k = new Set(all.map((d) => Math.min(3, Math.floor((d.dia - 1) / 7)))).size;
@@ -155,38 +227,23 @@ export function validateWeek(
   return errors;
 }
 
-// Catálogo de formatos estándar para construir cupos explícitos.
-const FORMAT_CATALOG = [
-  "reel",
-  "carrusel",
-  "historia",
-  "video en directo",
-  "post de texto",
-  "encuesta",
-  "testimonio en video",
-  "demo del producto",
-  "behind the scenes",
-  "infografía",
-  "nota de voz",
-  "colaboración",
-];
-
-/** Cupos restantes por formato (mes: 3 − usados; semana: máx 2). */
-function formatQuota(otherDays: Dia[]): Map<string, number> {
+/** Cupos restantes por formato del catálogo PERMITIDO (mes 3 − usados; semana máx 2). */
+function formatQuota(otherDays: Dia[], personaVisible: string): Map<string, number> {
   const used = usedCounts(otherDays, "formato");
   const quota = new Map<string, number>();
-  for (const f of FORMAT_CATALOG) {
-    quota.set(f, Math.min(2, 3 - (used.get(f) ?? 0)));
-  }
-  for (const [f, n] of used) {
-    if (!quota.has(f)) quota.set(f, Math.min(2, 3 - n));
+  for (const f of allowedFormats(personaVisible)) {
+    quota.set(f, Math.min(2, 3 - (used.get(norm(f)) ?? 0)));
   }
   return quota;
 }
 
 /** Distribución FACTIBLE de formatos para una semana (para reintentos). */
-function feasibleFormatPlan(otherDays: Dia[], daysCount: number): string {
-  const quota = [...formatQuota(otherDays).entries()]
+function feasibleFormatPlan(
+  otherDays: Dia[],
+  daysCount: number,
+  personaVisible: string,
+): string {
+  const quota = [...formatQuota(otherDays, personaVisible).entries()]
     .filter(([, q]) => q > 0)
     .sort((a, b) => b[1] - a[1]);
   const plan: string[] = [];
@@ -204,18 +261,43 @@ function weekPrompt(args: {
   weekIndex: number;
   contexto: string;
   fomo: CalendarFomo;
+  ctas: { primario: string; secundario: string };
+  personaVisible: string;
+  magnets: Array<{ codigo: string; ctaExacto: string }>;
   otherDays: Dia[]; // días del RESTO del mes ya fijados (antes y después)
   prohibido?: string;
   extraErrors?: string[];
 }): string {
-  const { weekIndex, contexto, fomo, otherDays, prohibido, extraErrors } = args;
+  const {
+    weekIndex,
+    contexto,
+    fomo,
+    ctas,
+    personaVisible,
+    magnets,
+    otherDays,
+    prohibido,
+    extraErrors,
+  } = args;
   const [from, to] = FASE6_WEEK_RANGES[weekIndex];
   const angulos = usedCounts(otherDays, "angulo");
   const formatos = usedCounts(otherDays, "formato");
-  const quota = formatQuota(otherDays);
+  const quota = formatQuota(otherDays, personaVisible);
   const quotaLine = [...quota.entries()]
     .map(([f, q]) => (q > 0 ? `${f}(${q})` : `${f}(PROHIBIDO)`))
     .join(", ");
+  // Plan del master día a día para esta semana.
+  const planLines = Array.from({ length: to - from + 1 }, (_, k) => {
+    const dia = from + k;
+    const m = ORDEN_MASTER[dia - 1];
+    return `DÍA ${dia} (${weekdayOf(dia)}) — Ángulo: ${m.angulo} — USO: ${m.uso}`;
+  }).join("\n");
+  const magnetLines =
+    magnets.length > 0
+      ? magnets
+          .map((m) => `${m.codigo} → keyword «${magnetKeyword(m.ctaExacto) ?? m.ctaExacto}»`)
+          .join("; ")
+      : "—";
   const byDay = new Map(otherDays.map((d) => [d.dia, d.angulo]));
   const boundary = [from - 2, from - 1, to + 1, to + 2]
     .filter((d) => byDay.has(d))
@@ -258,21 +340,29 @@ function weekPrompt(args: {
           .filter(Boolean)
           .join("\n"),
     ``,
-    `# CUPOS DE FORMATO PARA ESTA SEMANA (mecánicos: el servidor los verifica)`,
-    `Cada formato indica cuántas veces puedes usarlo ESTA SEMANA: ${quotaLine}.`,
-    `Suma de reglas: máximo 2 usos por formato POR SEMANA y 3 EN EL MES. No inventes usos por encima del cupo.`,
+    `# PLAN DEL MASTER PARA ESTA SEMANA (ángulo y uso por día — OBLIGATORIO)`,
+    planLines,
+    `Puedes SUSTITUIR el ángulo en máximo 2 días de la semana (mismo USO del día, y solo con ángulos del catálogo). El USO de cada día NUNCA se cambia.`,
+    ``,
+    `# CATÁLOGOS CERRADOS (valores EXACTOS, el schema los rechaza si difieren)`,
+    `Ángulos (18): Dolor Emocional, Problema, Errores, Enemigos, Dudas, Deseo, Storytelling, Autoridad, Prueba Social, Objeciones, Comparación, Controversia, Técnico, Vinculación, Oportunidad, Demostración, Venta Directa, Viral.`,
+    `Formatos permitidos para este proyecto (persona visible: ${personaVisible}) con su cupo de ESTA SEMANA: ${quotaLine}.`,
+    `Regla de cupos: máximo 2 usos por formato POR SEMANA y 3 EN EL MES.`,
     extraErrors && extraErrors.length > 0
-      ? `DISTRIBUCIÓN FACTIBLE SUGERIDA (puedes mover formatos entre días, pero respeta los totales): ${feasibleFormatPlan(otherDays, to - from + 1)}.`
+      ? `DISTRIBUCIÓN FACTIBLE SUGERIDA (puedes mover formatos entre días, pero respeta los totales): ${feasibleFormatPlan(otherDays, to - from + 1, personaVisible)}.`
       : ``,
     ``,
-    `# REGLAS DURAS DE ESTA SEMANA (el servidor las verifica: si las violas, se rechaza)`,
-    `- OBLIGATORIO: introduce al menos ${needAngles} ángulo(s) NUEVOS, no usados en el resto del mes. Un ángulo = un enfoque temático concreto (usa el banco de tesis: cada tesis es un ángulo distinto). Dentro de la semana, NO repitas ángulo en más de 2 días.`,
-    needFormats > 0
-      ? `- OBLIGATORIO: introduce al menos ${needFormats} formato(s) NUEVOS no usados en el resto del mes (elige del catálogo de cupos de arriba).`
-      : `- Respeta los cupos de formato de arriba al pie de la letra.`,
+    `# CTAs (el servidor los verifica)`,
+    `Días de CONVERSIÓN sin magnet: el campo cta es EXACTAMENTE "${ctas.primario}" o "${ctas.secundario}" — ni una palabra más.`,
+    `Días con magnet (campo magnet = código): el cta usa la keyword exacta del magnet. Magnets disponibles: ${magnetLines}.`,
+    ``,
+    `# IDIOMA (regla dura)`,
+    `Español impecable CON TODAS LAS TILDES y signos (Miércoles, teléfono, cuántos, qué, ¿…?, ¡…!). Revisa hook, ideaCentral y cta de cada día antes de emitir: un texto sin tildes se rechaza.`,
+    ``,
+    `# REGLAS DURAS ADICIONALES`,
     `- Ningún ángulo más de 2 días seguidos (cuenta las fronteras con las semanas vecinas).`,
-    `- Mezcla usos ATRACCION/NUTRICION/CONVERSION; la prueba social usa SOLO casos del Credibility Bank del contexto.`,
-    `- Los magnets se ofrecen con su CTA exacto en los días que apliquen (campo magnet = código del magnet o null).`,
+    `- La prueba social usa SOLO casos del Credibility Bank del contexto.`,
+    `- Hooks con brecha de curiosidad: las primeras 3-5 palabras cargan el peso y JAMÁS revelan el final.`,
     prohibido ? `\n# PROHIBIDO REPETIR (mes anterior)\n${prohibido}` : ``,
     extraErrors && extraErrors.length > 0
       ? `\n# CORRIGE ESTOS ERRORES DEL INTENTO ANTERIOR\n${extraErrors.map((e) => `- ${e}`).join("\n")}`
@@ -409,21 +499,36 @@ export async function generateCalendarInWeeks(
         onProgress({ semana: w + 1, de: 4, estado: "generando" });
       }
       intentosPorSemana[w]++;
-      const dias = (
-        await genWeek({
-          weekIndex: w,
-          prompt: weekPrompt({
+      let dias: Dia[];
+      try {
+        dias = (
+          await genWeek({
             weekIndex: w,
-            contexto: opts.contexto,
-            fomo,
-            otherDays,
-            prohibido: opts.prohibido,
-            extraErrors: errors,
-          }),
-        })
-      ).dias;
+            prompt: weekPrompt({
+              weekIndex: w,
+              contexto: opts.contexto,
+              fomo,
+              ctas: opts.ctas,
+              personaVisible: opts.personaVisible ?? "COMPLETA",
+              magnets: opts.magnets ?? [],
+              otherDays,
+              prohibido: opts.prohibido,
+              extraErrors: errors,
+            }),
+          })
+        ).dias;
+      } catch {
+        // El schema con enums cerrados rechazó la salida del modelo.
+        errors = [
+          "La semana produjo ángulos o formatos fuera de los catálogos cerrados: usa los valores EXACTOS de las listas.",
+        ];
+        continue;
+      }
       onProgress({ semana: w + 1, de: 4, estado: "validando" });
-      errors = validateWeek(dias, w, otherDays);
+      errors = validateWeek(dias, w, otherDays, {
+        ctas: opts.ctas,
+        magnets: opts.magnets,
+      });
       if (errors.length === 0) {
         weeks[w] = dias;
         await persistPartial(projectId, { __partial: true, fomo, weeks });
@@ -456,8 +561,20 @@ export async function generateCalendarInWeeks(
         fomoConfirmado: fomo.confirmedByClient,
         pruebaSocialConCasos: true,
       },
+      // Etiquetas estratégicas (lógica semanal del master); la semana 4
+      // muestra el FOMO en positivo — nunca "sin FOMO".
+      etiquetasSemana: [
+        ETIQUETAS_SEMANA_BASE[0],
+        ETIQUETAS_SEMANA_BASE[1],
+        ETIQUETAS_SEMANA_BASE[2],
+        `${ETIQUETAS_SEMANA_BASE[3]} — FOMO: ${fomo.descripcion}`,
+      ],
+      ctas: opts.ctas,
     };
-    const globalErrors = validateCalendar(assembled);
+    const globalErrors = validateCalendar(assembled, {
+      personaVisible: opts.personaVisible,
+      magnets: opts.magnets,
+    });
     if (globalErrors.length === 0) {
       const parsed = fase6Schema.parse(assembled); // defensa en profundidad
       await prisma.section.upsert({

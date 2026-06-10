@@ -75,7 +75,28 @@ export async function POST(req: NextRequest) {
   // Gate de FOMO + verificación de la Parte 6: el calendario jamás se aprueba
   // si viola las reglas o si el cliente no confirmó el FOMO real.
   if (phaseId === "fase_6") {
-    const calErrors = validateCalendar(valid.data as never);
+    // Contexto canónico: personaVisible (fase_0) y magnets (fase_5), con
+    // herencia del proyecto padre en MODO_2.
+    const ctxSections = await prisma.section.findMany({
+      where: {
+        projectId:
+          project.mode === "MODO_2" && project.parentId
+            ? { in: [projectId, project.parentId] }
+            : projectId,
+        phaseId: { in: ["fase_0", "fase_5"] },
+        status: "APPROVED",
+      },
+    });
+    const fase0 = ctxSections.find((s) => s.phaseId === "fase_0");
+    const fase5 = ctxSections.find((s) => s.phaseId === "fase_5");
+    const calErrors = validateCalendar(valid.data as never, {
+      personaVisible: fase0
+        ? (JSON.parse(fase0.data) as { personaVisible?: string }).personaVisible
+        : undefined,
+      magnets: fase5
+        ? (JSON.parse(fase5.data) as { magnets?: Array<{ codigo: string; ctaExacto: string }> }).magnets
+        : undefined,
+    });
     if (calErrors.length > 0) {
       return Response.json(
         { error: `El calendario no pasa la verificación: ${calErrors.join(" ")}` },

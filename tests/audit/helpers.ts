@@ -99,19 +99,34 @@ export const FASE05_DATA = {
 
 const USOS = ["ATRACCION", "NUTRICION", "CONVERSION"] as const;
 
-/** Calendario que cumple TODAS las reglas de la Parte 6. */
+import { ORDEN_MASTER, FORMATOS_19 } from "@/lib/calendar/catalogs";
+
+/** CTAs canónicos de prueba (los del master). */
+export const CTAS_TEST = { primario: "Ingresa ya", secundario: "Escríbenos" };
+
+/**
+ * Día CANÓNICO: sigue el orden exacto de ángulos/usos del master v2.2,
+ * formatos del catálogo de 19 (≤2 por semana, ≤3 al mes) y CTAs canónicos
+ * en conversión. Con tildes (regla de idioma).
+ */
+export function canonicalDay(dia: number) {
+  const m = ORDEN_MASTER[dia - 1];
+  return {
+    dia,
+    diaSemana: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][(dia - 1) % 7],
+    angulo: m.angulo,
+    uso: m.uso,
+    formato: FORMATOS_19[(dia - 1) % 19],
+    hook: `¿Cuántos días llevas posponiendo esto? — día ${dia}`,
+    ideaCentral: `Idea central del día ${dia}: acción con intención.`,
+    magnet: null as string | null,
+    cta: m.uso === "CONVERSION" ? CTAS_TEST.primario : "Guarda esta idea",
+  };
+}
+
+/** Calendario que cumple TODAS las reglas de la Parte 6 (master v2.2). */
 export function validCalendar() {
-  const dias = Array.from({ length: 31 }, (_, i) => ({
-    dia: i + 1,
-    diaSemana: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][i % 7],
-    angulo: `Ángulo ${1 + (i % 12)}`,
-    uso: USOS[i % 3],
-    formato: `Formato ${1 + (i % 11)}`,
-    hook: `Hook número ${i + 1}`,
-    ideaCentral: `Idea central del día ${i + 1}`,
-    magnet: null,
-    cta: "Comenta «GUÍA»",
-  }));
+  const dias = Array.from({ length: 31 }, (_, i) => canonicalDay(i + 1));
   return {
     fomo: {
       descripcion: "Quedan 5 cupos",
@@ -120,11 +135,18 @@ export function validCalendar() {
     },
     dias,
     verificacion: {
-      angulosDistintos: 12,
-      formatosDistintos: 11,
+      angulosDistintos: new Set(dias.map((d) => d.angulo)).size,
+      formatosDistintos: new Set(dias.map((d) => d.formato)).size,
       fomoConfirmado: true,
       pruebaSocialConCasos: true,
     },
+    etiquetasSemana: [
+      "Instalar el eje de posicionamiento (audiencia fría)",
+      "Construir autoridad y demostrar el mecanismo",
+      "Nuevos casos y ángulos: reforzar la confianza",
+      "Venta con urgencia real — FOMO: Quedan 5 cupos",
+    ],
+    ctas: CTAS_TEST,
   };
 }
 
@@ -190,6 +212,12 @@ export function pdfSections(): Record<string, unknown> {
       versionAgresiva: "Agresiva",
       versionConsultiva: "Consultiva",
       tesisUnificada: "Tesis",
+      reglaEjecucion:
+        "Esta tesis se repite en cada pieza desde ángulos distintos: instalación de asociación, no variedad.",
+      senalesDeExito: [
+        "vi tu video y me di cuenta que llevo años haciéndolo al revés",
+        "nunca nadie me lo había dicho así",
+      ],
     },
     fase_2_2: { principal: "Principal", agresivo: "Agresivo", comercial: "Comercial" },
     fase_2_3: { tesis: Array.from({ length: 10 }, (_, i) => `Tesis ${i + 1}`) },

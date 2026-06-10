@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ANGULOS_18, FORMATOS_19 } from "@/lib/calendar/catalogs";
 
 // Schemas Zod de cada sección (fuente de verdad del PDF).
 // Se usan en 3 lugares: tool `propose_section` del LLM, validación al guardar
@@ -122,6 +123,10 @@ const fase21Creencia = z.object({
   versionAgresiva: z.string(),
   versionConsultiva: z.string(),
   tesisUnificada: z.string(),
+  // Regla de ejecución — Pairing × Consistencia (redactada para el cliente).
+  reglaEjecucion: z.string(),
+  // "Señal de que funciona": 2 DMs hipotéticos en el lenguaje del avatar.
+  senalesDeExito: z.array(z.string()).length(2),
 });
 const fase21Proceso = z.object({
   tipo: z.literal("PROCESO"),
@@ -136,6 +141,8 @@ const fase21Combinacion = z.object({
   versionAgresiva: z.string(),
   versionConsultiva: z.string(),
   tesisUnificada: z.string(),
+  reglaEjecucion: z.string(),
+  senalesDeExito: z.array(z.string()).length(2),
   versiones: z.array(z.string()).min(5).max(7),
 });
 
@@ -227,43 +234,56 @@ export const fase5Schema = z.object({
     .length(5),
 });
 
+// Enums CERRADOS del master v2.2 (18 ángulos / 19 formatos): valor exacto,
+// no texto libre. Catálogos canónicos en lib/calendar/catalogs.ts.
 export const fase6DiaSchema = z.object({
   dia: z.number().int().min(1).max(31),
   diaSemana: z.string(),
-  angulo: z.string(),
+  angulo: z.enum(ANGULOS_18),
   uso: z.enum(["ATRACCION", "NUTRICION", "CONVERSION"]),
-  formato: z.string(),
+  formato: z.enum(FORMATOS_19),
   hook: z.string(),
   ideaCentral: z.string(),
   magnet: z.string().nullable(),
   cta: z.string(),
 });
 
-/** Días que cubre cada semana de generación (1-indexed). */
-export const FASE6_WEEK_RANGES: Array<[number, number]> = [
-  [1, 7],
-  [8, 14],
-  [15, 21],
-  [22, 31],
-];
+/** Días que cubre cada semana de generación (fuente: catálogos canónicos). */
+export { FASE6_SEMANAS as FASE6_WEEK_RANGES } from "@/lib/calendar/catalogs";
+import { FASE6_SEMANAS } from "@/lib/calendar/catalogs";
 
 /**
  * Schema de UNA semana del calendario (raíz type:object — lección DeepSeek:
  * las APIs compatibles con OpenAI rechazan raíces no-objeto).
  */
 export function fase6WeekSchema(weekIndex: number) {
-  const [from, to] = FASE6_WEEK_RANGES[weekIndex];
+  const [from, to] = FASE6_SEMANAS[weekIndex];
   return z.object({
     dias: z.array(fase6DiaSchema).length(to - from + 1),
   });
 }
 
-/** Input de la tool `generar_calendario`: SOLO el FOMO confirmado. */
+/** CTA canónico del proyecto: máximo 4 palabras (regla B4). */
+const ctaCorto = z
+  .string()
+  .min(2)
+  .refine((s) => s.trim().split(/\s+/).length <= 4, {
+    message: "El CTA canónico debe tener máximo 4 palabras",
+  });
+
+/**
+ * Input de la tool `generar_calendario`: el FOMO confirmado + el par de
+ * CTAs canónicos de conversión acordados con el cliente.
+ */
 export const fase6FomoToolSchema = z.object({
   fomo: z.object({
     descripcion: z.string(),
     tipo: z.string(),
     confirmedByClient: z.boolean(),
+  }),
+  ctas: z.object({
+    primario: ctaCorto,
+    secundario: ctaCorto,
   }),
 });
 
@@ -280,6 +300,11 @@ export const fase6Schema = z.object({
     fomoConfirmado: z.boolean(),
     pruebaSocialConCasos: z.boolean(),
   }),
+  // Nuevos (ajuste de calidad). Opcionales en el schema para tolerar
+  // calendarios aprobados ANTES del ajuste; el validador los exige en
+  // toda generación/aprobación nueva.
+  etiquetasSemana: z.array(z.string()).length(4).optional(),
+  ctas: z.object({ primario: z.string(), secundario: z.string() }).optional(),
 });
 
 /**

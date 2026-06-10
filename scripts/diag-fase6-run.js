@@ -10,7 +10,7 @@ const PASS = "diag-pass-1234";
 const TIMEOUT_MS = 7 * 60 * 1000;
 
 const MSG =
-  "Confirmo el FOMO del mes: quedan solo 5 cupos de la mentoría de julio (tipo: cupos limitados). Sí, confirmedByClient: true. Genera ya el calendario completo de los 31 días con todo lo aprobado, sin preguntarme nada más.";
+  "Confirmo el FOMO del mes: quedan solo 5 cupos de la mentoría de julio (tipo: cupos limitados), confirmedByClient: true. Y confirmo los CTAs canónicos del proyecto: primario 'Comenta YO' y secundario 'Escríbeme SISTEMA'. Genera ya el calendario completo de los 31 días, sin preguntarme nada más.";
 
 (async () => {
   const project = await prisma.project.findFirst({
@@ -185,6 +185,35 @@ const MSG =
   if (draft) {
     const data = JSON.parse(draft.data);
     console.log(`\nBorrador en DB: ${data.dias?.length ?? "?"} días · status=${draft.status}`);
+    if (data.dias?.length === 31 && draft.status === "DRAFT") {
+      const ang = new Set(data.dias.map((x) => x.angulo));
+      const fmt = new Set(data.dias.map((x) => x.formato));
+      const conTildes = /[áéíóúñ¿¡]/.test(JSON.stringify(data.dias));
+      console.log(
+        `calidad: angulos=${ang.size} formatos=${fmt.size} tildes=${conTildes ? "SÍ" : "NO"} etiquetas=${data.etiquetasSemana?.length ?? 0} ctas=${data.ctas?.primario ?? "—"}/${data.ctas?.secundario ?? "—"}`,
+      );
+      // Regresión de oro: aprobar y producir el PDF real de muestra.
+      await prisma.section.update({
+        where: { id: draft.id },
+        data: { status: "APPROVED", approvedAt: new Date() },
+      });
+      const pdfB64 = await page.evaluate(async (pid) => {
+        const r = await fetch(`/api/pdf/${pid}`);
+        if (!r.ok) return `ERROR ${r.status}: ${await r.text()}`;
+        const buf = await r.arrayBuffer();
+        let bin = "";
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin);
+      }, project.id);
+      if (pdfB64.startsWith("ERROR")) {
+        console.log("PDF:", pdfB64.slice(0, 200));
+      } else {
+        const fs = require("fs");
+        fs.writeFileSync("storage/pdfs/muestra-calidad.pdf", Buffer.from(pdfB64, "base64"));
+        console.log(`PDF de muestra: storage/pdfs/muestra-calidad.pdf (${Buffer.from(pdfB64, "base64").length} bytes)`);
+      }
+    }
   } else {
     console.log("\nSin borrador fase_6 en DB.");
   }

@@ -16,6 +16,12 @@ Definir LA promesa central de la marca: el resultado concreto que el cliente obt
 5. Refina la elegida con él hasta tener la **promesa final**. Verifica que sea específica, creíble y que el nicho aprobado la entienda sin explicación.
 6. Si el cliente quiere prometer algo que sus resultados no respaldan, dilo claramente antes de continuar (regla del estratega).
 
+## Formato obligatorio de la promesa final
+"Ayudo a [PERSONA] a [RESULTADO CONCRETO] en [TIEMPO] — sin [OBJECIÓN]". El bloque de tiempo puede omitirse si no es honesto prometer plazos; el "sin [OBJECIÓN]" ataca la objeción #1 del avatar.
+
+## Pulido obligatorio antes de proponer
+Relee la promesa en voz alta: gramática, ritmo, y que suene a frase de marca. Anti-ejemplo: "Esto pondrá a correr tu negocio sin tu mirar" → "Tu negocio corriendo sin que tengas que mirarlo". Si la frase nace del lenguaje literal del cliente y está rota gramaticalmente, propone la versión pulida Y la literal, y que el cliente elija.
+
 ## Salida
 Cuando la promesa final esté validada, llama a `propose_section` con:
 - `opciones`: array con las 10 opciones generadas (referencia)

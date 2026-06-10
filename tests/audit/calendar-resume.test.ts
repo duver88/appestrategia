@@ -5,29 +5,15 @@ import {
   type GenerateCalendarOptions,
 } from "@/lib/calendar/generate";
 import { FASE6_WEEK_RANGES, fase6Schema } from "@/lib/schemas";
-import { createClientWithUser, createProject } from "./helpers";
+import { createClientWithUser, createProject, canonicalDay, CTAS_TEST } from "./helpers";
 import type { LanguageModel } from "ai";
 
-const WEEK = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const USOS = ["ATRACCION", "NUTRICION", "CONVERSION"] as const;
+// FIXTURES ACTUALIZADAS AL CATÁLOGO CANÓNICO (ajuste de calidad A2).
 const FOMO = { descripcion: "Quedan 5 cupos", tipo: "Cupos", confirmedByClient: true };
 
 function mkDays(weekIndex: number) {
   const [from, to] = FASE6_WEEK_RANGES[weekIndex];
-  return Array.from({ length: to - from + 1 }, (_, k) => {
-    const dia = from + k;
-    return {
-      dia,
-      diaSemana: WEEK[(dia - 1) % 7],
-      angulo: `Ángulo ${1 + ((dia - 1) % 12)}`,
-      uso: USOS[(dia - 1) % 3],
-      formato: `Formato ${1 + ((dia - 1) % 11)}`,
-      hook: `Hook ${dia}`,
-      ideaCentral: `Idea ${dia}`,
-      magnet: null,
-      cta: "Comenta «GUÍA»",
-    };
-  });
+  return Array.from({ length: to - from + 1 }, (_, k) => canonicalDay(from + k));
 }
 
 describe("reanudación del calendario por semanas", () => {
@@ -59,6 +45,8 @@ describe("reanudación del calendario por semanas", () => {
       modelSpec: "test:fake",
       contexto: "Contexto de prueba",
       fomo: FOMO,
+      ctas: CTAS_TEST,
+      personaVisible: "COMPLETA",
       onProgress: () => {},
       generateWeekFn: async ({ weekIndex }) => {
         generatedWeeks.push(weekIndex);

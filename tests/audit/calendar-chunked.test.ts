@@ -6,44 +6,23 @@ import {
 } from "@/lib/calendar/generate";
 import { FASE6_WEEK_RANGES, fase6Schema } from "@/lib/schemas";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
-import { createClientWithUser, createProject } from "./helpers";
+import { createClientWithUser, createProject, canonicalDay, CTAS_TEST } from "./helpers";
 import type { LanguageModel } from "ai";
 
-const WEEK = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const USOS = ["ATRACCION", "NUTRICION", "CONVERSION"] as const;
+// FIXTURES ACTUALIZADAS AL CATÁLOGO CANÓNICO (ajuste de calidad A2):
+// los días siguen el orden exacto del master; las aserciones originales
+// (regeneración selectiva, tope de reintentos, error controlado) se
+// mantienen intactas.
+
 const FOMO = { descripcion: "Quedan 5 cupos", tipo: "Cupos", confirmedByClient: true };
 
-type Dia = {
-  dia: number;
-  diaSemana: string;
-  angulo: string;
-  uso: (typeof USOS)[number];
-  formato: string;
-  hook: string;
-  ideaCentral: string;
-  magnet: string | null;
-  cta: string;
-};
+type Dia = ReturnType<typeof canonicalDay>;
 
-/** Semana válida con el patrón global correcto (12 ángulos, 11 formatos). */
-function mkDays(
-  weekIndex: number,
-  overrides?: { angulo?: (dia: number) => string; formato?: (dia: number) => string },
-): Dia[] {
+function mkDays(weekIndex: number, override?: (d: Dia) => Dia): Dia[] {
   const [from, to] = FASE6_WEEK_RANGES[weekIndex];
   return Array.from({ length: to - from + 1 }, (_, k) => {
-    const dia = from + k;
-    return {
-      dia,
-      diaSemana: WEEK[(dia - 1) % 7],
-      angulo: overrides?.angulo?.(dia) ?? `Ángulo ${1 + ((dia - 1) % 12)}`,
-      uso: USOS[(dia - 1) % 3],
-      formato: overrides?.formato?.(dia) ?? `Formato ${1 + ((dia - 1) % 11)}`,
-      hook: `Hook ${dia}`,
-      ideaCentral: `Idea ${dia}`,
-      magnet: null,
-      cta: "Comenta «GUÍA»",
-    };
+    const d = canonicalDay(from + k);
+    return override ? override(d) : d;
   });
 }
 
@@ -59,6 +38,8 @@ function makeOpts(
     modelSpec: "test:fake",
     contexto: "Contexto de prueba",
     fomo: FOMO,
+    ctas: CTAS_TEST,
+    personaVisible: "COMPLETA",
     onProgress: () => {},
     generateWeekFn: genFn,
   };
@@ -91,6 +72,8 @@ describe("generación del calendario por semanas", () => {
     expect(section?.status).toBe("DRAFT");
     const data = fase6Schema.parse(JSON.parse(section!.data));
     expect(data.dias).toHaveLength(31);
+    expect(data.etiquetasSemana).toHaveLength(4);
+    expect(data.ctas?.primario).toBe(CTAS_TEST.primario);
     expect(validateCalendar(data)).toHaveLength(0);
   });
 
@@ -99,9 +82,10 @@ describe("generación del calendario por semanas", () => {
     const res = await generateCalendarInWeeks(
       makeOpts(projectId, clientId, async ({ weekIndex }) => {
         calls[weekIndex]++;
-        // Semana 2: el primer intento viola la regla local (3 ángulos seguidos).
+        // Semana 2, intento 1: viola la regla local (mismo ángulo 3 días
+        // seguidos y sustituciones por encima del máximo).
         if (weekIndex === 1 && calls[1] === 1) {
-          return { dias: mkDays(1, { angulo: () => "Ángulo Clavado" }) };
+          return { dias: mkDays(1, (d) => ({ ...d, angulo: "Errores" as const })) };
         }
         return { dias: mkDays(weekIndex) };
       }),
@@ -110,25 +94,35 @@ describe("generación del calendario por semanas", () => {
     expect(calls).toEqual([1, 2, 1, 1]); // solo la semana 2 se regeneró
   });
 
-  it("la validación global regenera solo la semana culpable", async () => {
-    const calls: number[] = [0, 0, 0, 0];
+  it("un parcial heredado que viola reglas globales regenera solo la semana culpable", async () => {
+    // Parcial persistido (p. ej. de una versión vieja) donde las semanas
+    // 1-2 acumulan "Broll con Texto" 5 veces (las semanas 3-4 canónicas no
+    // lo usan): la global lo atrapa al ensamblar y SOLO la semana culpable
+    // se regenera.
+    const w1 = mkDays(0, (d) =>
+      d.dia <= 2 ? { ...d, formato: "Broll con Texto" as const } : d,
+    );
+    const w2 = mkDays(1, (d) =>
+      d.dia <= 9 ? { ...d, formato: "Broll con Texto" as const } : d,
+    );
+    await prisma.section.create({
+      data: {
+        projectId,
+        phaseId: "fase_6",
+        status: "PARTIAL",
+        data: JSON.stringify({ __partial: true, fomo: FOMO, weeks: [w1, w2, null, null] }),
+      },
+    });
+    const generated: number[] = [];
     const res = await generateCalendarInWeeks(
       makeOpts(projectId, clientId, async ({ weekIndex }) => {
-        calls[weekIndex]++;
-        // Semana 4, intento 1: localmente válida, pero empuja "Formato 1"
-        // a 4 usos en el MES (la regla global la atrapa al ensamblar).
-        if (weekIndex === 3 && calls[3] === 1) {
-          return {
-            dias: mkDays(3, {
-              formato: (dia) => (dia <= 23 ? "Formato 1" : `Formato ${1 + ((dia - 1) % 11)}`),
-            }),
-          };
-        }
+        generated.push(weekIndex);
         return { dias: mkDays(weekIndex) };
       }),
     );
     expect(res.ok).toBe(true);
-    expect(calls).toEqual([1, 1, 1, 2]); // solo la semana 4 se regeneró
+    // Genera 3 y 4 (faltantes) y LUEGO solo la semana 2 (culpable global).
+    expect(generated).toEqual([2, 3, 1]);
   });
 
   it("tras 2 reintentos fallidos devuelve error controlado", async () => {
@@ -136,9 +130,9 @@ describe("generación del calendario por semanas", () => {
     const res = await generateCalendarInWeeks(
       makeOpts(projectId, clientId, async ({ weekIndex }) => {
         calls[weekIndex]++;
-        // La semana 1 SIEMPRE viola la regla local: jamás converge.
+        // La semana 1 SIEMPRE viola las reglas: jamás converge.
         if (weekIndex === 0) {
-          return { dias: mkDays(0, { angulo: () => "Ángulo Clavado" }) };
+          return { dias: mkDays(0, (d) => ({ ...d, angulo: "Errores" as const })) };
         }
         return { dias: mkDays(weekIndex) };
       }),
@@ -148,7 +142,6 @@ describe("generación del calendario por semanas", () => {
     expect(calls[0]).toBe(3); // 1 generación + 2 reintentos, NUNCA bucle infinito
     expect(calls.slice(1)).toEqual([0, 0, 0]);
 
-    // Sin borrador aprobable: el avance queda como PARTIAL (o inexistente).
     const section = await prisma.section.findUnique({
       where: { projectId_phaseId: { projectId, phaseId: "fase_6" } },
     });
