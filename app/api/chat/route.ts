@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { getModel } from "@/lib/llm";
 import { loadMasterRules, loadPhasePrompt, selectEjeOption } from "@/lib/prompts";
 import { buildApprovedContext } from "@/lib/summary";
-import { SECTION_SCHEMAS } from "@/lib/schemas";
+import { sectionToolSchema } from "@/lib/schemas";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
 import { ACTIVE_PHASES, getPhase } from "@/lib/state-machine/phases";
 import { canAccessClient, getSessionUser } from "@/lib/authz";
@@ -111,13 +111,13 @@ export async function POST(req: NextRequest) {
     loadPhasePrompt(phaseId, project.mode),
   ]);
 
-  // Ramificación de fase_2_1: inyectar SOLO la opción del eje diagnosticado
-  // en la fase_0_5 aprobada (A, B, C o D).
+  // Ramificación de fase_2_1: SOLO la opción del eje diagnosticado en la
+  // fase_0_5 aprobada (A, B, C o D), tanto en el prompt como en la tool.
+  const diag = approved.find((s) => s.phaseId === "fase_0_5");
+  const eje = (diag?.data as { eje?: string } | undefined)?.eje ?? null;
   let phasePrompt = rawPhasePrompt;
-  if (phaseId === "fase_2_1") {
-    const diag = approved.find((s) => s.phaseId === "fase_0_5");
-    const eje = (diag?.data as { eje?: string } | undefined)?.eje;
-    if (eje) phasePrompt = selectEjeOption(rawPhasePrompt, eje);
+  if (phaseId === "fase_2_1" && eje) {
+    phasePrompt = selectEjeOption(rawPhasePrompt, eje);
   }
 
   const system = [
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
     `# INSTRUCCIÓN DE SALIDA\nCuando el cliente apruebe el contenido de esta fase, o cuando tú consideres que está listo para aprobación, llama a la tool \`propose_section\` con el JSON según el schema. Tras llamarla con éxito, avisa al cliente en un mensaje breve que revise la tarjeta de propuesta y use los botones Aprobar o Pedir cambios. Si la tool devuelve errores de validación, corrige el contenido y vuelve a llamarla sin molestar al cliente con detalles técnicos.`,
   ].join("\n");
 
-  const sectionSchema = SECTION_SCHEMAS[phaseId];
+  const sectionSchema = sectionToolSchema(phaseId, eje);
   if (!sectionSchema) {
     return Response.json({ error: `Sin schema para ${phaseId}` }, { status: 500 });
   }

@@ -116,30 +116,43 @@ export const fase17Schema = z.object({
   ),
 });
 
+const fase21Creencia = z.object({
+  tipo: z.literal("CREENCIA_CONTRARIA"),
+  narrativaDominante: z.string(),
+  versionAgresiva: z.string(),
+  versionConsultiva: z.string(),
+  tesisUnificada: z.string(),
+});
+const fase21Proceso = z.object({
+  tipo: z.literal("PROCESO"),
+  versiones: z.array(z.string()).min(5).max(7),
+});
+const fase21Resultado = z.object({
+  tipo: z.literal("RESULTADO"), // los casos van en fase_2_4
+});
+const fase21Combinacion = z.object({
+  tipo: z.literal("COMBINACION"),
+  narrativaDominante: z.string(),
+  versionAgresiva: z.string(),
+  versionConsultiva: z.string(),
+  tesisUnificada: z.string(),
+  versiones: z.array(z.string()).min(5).max(7),
+});
+
 export const fase21Schema = z.discriminatedUnion("tipo", [
-  z.object({
-    tipo: z.literal("CREENCIA_CONTRARIA"),
-    narrativaDominante: z.string(),
-    versionAgresiva: z.string(),
-    versionConsultiva: z.string(),
-    tesisUnificada: z.string(),
-  }),
-  z.object({
-    tipo: z.literal("PROCESO"),
-    versiones: z.array(z.string()).min(5).max(7),
-  }),
-  z.object({
-    tipo: z.literal("RESULTADO"), // los casos van en fase_2_4
-  }),
-  z.object({
-    tipo: z.literal("COMBINACION"),
-    narrativaDominante: z.string(),
-    versionAgresiva: z.string(),
-    versionConsultiva: z.string(),
-    tesisUnificada: z.string(),
-    versiones: z.array(z.string()).min(5).max(7),
-  }),
+  fase21Creencia,
+  fase21Proceso,
+  fase21Resultado,
+  fase21Combinacion,
 ]);
+
+/** Variante por eje diagnosticado (cada una es un objeto en la raíz). */
+export const FASE21_VARIANTS: Record<string, z.ZodTypeAny> = {
+  CREENCIA_CONTRARIA: fase21Creencia,
+  PROCESO: fase21Proceso,
+  RESULTADO: fase21Resultado,
+  COMBINACION: fase21Combinacion,
+};
 
 export const fase22Schema = z.object({
   principal: z.string(),
@@ -243,7 +256,24 @@ export const fase6Schema = z.object({
   }),
 });
 
-/** Registro fase → schema. La tool `propose_section` usa el de la fase actual. */
+/**
+ * Schema para la tool `propose_section`: SIEMPRE un objeto en la raíz.
+ * Las APIs compatibles con OpenAI (DeepSeek, etc.) rechazan funciones cuyo
+ * JSON Schema raíz no sea `type: "object"` — por eso fase_2_1 expone la
+ * variante del eje diagnosticado en fase_0_5, nunca la unión completa.
+ */
+export function sectionToolSchema(
+  phaseId: string,
+  eje?: string | null,
+): z.ZodTypeAny | undefined {
+  if (phaseId === "fase_2_1") {
+    // COMBINACION es el superconjunto: fallback seguro si el eje faltara.
+    return FASE21_VARIANTS[eje ?? ""] ?? FASE21_VARIANTS.COMBINACION;
+  }
+  return SECTION_SCHEMAS[phaseId];
+}
+
+/** Registro fase → schema. Valida lo guardado (approve/PDF); la tool usa sectionToolSchema. */
 export const SECTION_SCHEMAS: Record<string, z.ZodTypeAny> = {
   fase_0: fase0Schema,
   fase_0_5: fase05Schema,
