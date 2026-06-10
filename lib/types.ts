@@ -3,7 +3,9 @@
 
 export type ProjectMode = "MODO_1" | "MODO_2";
 export type ProjectStatus = "IN_PROGRESS" | "REVIEW" | "COMPLETED";
-export type SectionStatus = "DRAFT" | "APPROVED";
+// PARTIAL: avance parcial del calendario por semanas (invisible para la UI
+// de propuesta, la aprobación y el PDF; solo lo usa el generador para reanudar).
+export type SectionStatus = "DRAFT" | "APPROVED" | "PARTIAL";
 export type MessageRole = "user" | "assistant";
 
 export interface SectionDTO {

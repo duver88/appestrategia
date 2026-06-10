@@ -227,27 +227,53 @@ export const fase5Schema = z.object({
     .length(5),
 });
 
+export const fase6DiaSchema = z.object({
+  dia: z.number().int().min(1).max(31),
+  diaSemana: z.string(),
+  angulo: z.string(),
+  uso: z.enum(["ATRACCION", "NUTRICION", "CONVERSION"]),
+  formato: z.string(),
+  hook: z.string(),
+  ideaCentral: z.string(),
+  magnet: z.string().nullable(),
+  cta: z.string(),
+});
+
+/** Días que cubre cada semana de generación (1-indexed). */
+export const FASE6_WEEK_RANGES: Array<[number, number]> = [
+  [1, 7],
+  [8, 14],
+  [15, 21],
+  [22, 31],
+];
+
+/**
+ * Schema de UNA semana del calendario (raíz type:object — lección DeepSeek:
+ * las APIs compatibles con OpenAI rechazan raíces no-objeto).
+ */
+export function fase6WeekSchema(weekIndex: number) {
+  const [from, to] = FASE6_WEEK_RANGES[weekIndex];
+  return z.object({
+    dias: z.array(fase6DiaSchema).length(to - from + 1),
+  });
+}
+
+/** Input de la tool `generar_calendario`: SOLO el FOMO confirmado. */
+export const fase6FomoToolSchema = z.object({
+  fomo: z.object({
+    descripcion: z.string(),
+    tipo: z.string(),
+    confirmedByClient: z.boolean(),
+  }),
+});
+
 export const fase6Schema = z.object({
   fomo: z.object({
     descripcion: z.string(),
     tipo: z.string(),
     confirmedByClient: z.boolean(),
   }),
-  dias: z
-    .array(
-      z.object({
-        dia: z.number().int().min(1).max(31),
-        diaSemana: z.string(),
-        angulo: z.string(),
-        uso: z.enum(["ATRACCION", "NUTRICION", "CONVERSION"]),
-        formato: z.string(),
-        hook: z.string(),
-        ideaCentral: z.string(),
-        magnet: z.string().nullable(),
-        cta: z.string(),
-      }),
-    )
-    .length(31),
+  dias: z.array(fase6DiaSchema).length(31),
   verificacion: z.object({
     angulosDistintos: z.number().int(),
     formatosDistintos: z.number().int(),

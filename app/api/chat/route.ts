@@ -1,11 +1,24 @@
 import { NextRequest } from "next/server";
-import { streamText, tool, stepCountIs, type ModelMessage } from "ai";
+import {
+  streamText,
+  tool,
+  stepCountIs,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  type ModelMessage,
+  type ToolSet,
+  type UIMessageStreamWriter,
+} from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getModel } from "@/lib/llm";
 import { loadMasterRules, loadPhasePrompt, selectEjeOption } from "@/lib/prompts";
 import { buildApprovedContext } from "@/lib/summary";
-import { sectionToolSchema } from "@/lib/schemas";
+import { sectionToolSchema, fase6FomoToolSchema } from "@/lib/schemas";
+import {
+  generateCalendarInWeeks,
+  type CalendarProgress,
+} from "@/lib/calendar/generate";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
 import { ACTIVE_PHASES, getPhase } from "@/lib/state-machine/phases";
 import { canAccessClient, getSessionUser } from "@/lib/authz";
@@ -120,27 +133,114 @@ export async function POST(req: NextRequest) {
     phasePrompt = selectEjeOption(rawPhasePrompt, eje);
   }
 
+  // fase_6 NO genera los 31 días en el chat: confirma el FOMO y delega en el
+  // pipeline por semanas del servidor (tool generar_calendario).
+  const salida =
+    phaseId === "fase_6"
+      ? `# INSTRUCCIÓN DE SALIDA (CALENDARIO)\nTu única salida estructurada es la tool \`generar_calendario\`. Cuando el cliente haya confirmado EXPLÍCITAMENTE el FOMO real del mes, llámala pasando solo ese FOMO (descripcion, tipo, confirmedByClient=true). El servidor construye el calendario semana a semana y el cliente ve el progreso en pantalla. NO escribas tú los 31 días, ni en texto ni en JSON. Si la tool devuelve ok=false, explica en una frase qué falló y ofrece reintentar (el avance parcial se conserva). Cuando devuelva ok=true, avisa al cliente que revise la tarjeta de propuesta y use los botones Aprobar o Pedir cambios.`
+      : `# INSTRUCCIÓN DE SALIDA\nCuando el cliente apruebe el contenido de esta fase, o cuando tú consideres que está listo para aprobación, llama a la tool \`propose_section\` con el JSON según el schema. Tras llamarla con éxito, avisa al cliente en un mensaje breve que revise la tarjeta de propuesta y use los botones Aprobar o Pedir cambios. Si la tool devuelve errores de validación, corrige el contenido y vuelve a llamarla sin molestar al cliente con detalles técnicos.`;
+
   const system = [
     masterRules,
     `\n# CLIENTE\nNombre: ${project.client.name}\nNegocio: ${project.client.business}\n`,
     `# CONTEXTO — SECCIONES YA APROBADAS\n${buildApprovedContext(approved)}\n`,
     prohibitedBlock,
     `# FASE ACTUAL — ${phase.title} (${phase.part})\n${phasePrompt}\n`,
-    `# INSTRUCCIÓN DE SALIDA\nCuando el cliente apruebe el contenido de esta fase, o cuando tú consideres que está listo para aprobación, llama a la tool \`propose_section\` con el JSON según el schema. Tras llamarla con éxito, avisa al cliente en un mensaje breve que revise la tarjeta de propuesta y use los botones Aprobar o Pedir cambios. Si la tool devuelve errores de validación, corrige el contenido y vuelve a llamarla sin molestar al cliente con detalles técnicos.`,
+    salida,
   ].join("\n");
+
+  // Contexto reducido para el generador de semanas (solo lo que el calendario
+  // necesita; el resumen completo de 17 fases sería 4× más caro por semana).
+  const CALENDAR_CTX_PHASES = [
+    "fase_1_0",
+    "fase_1_3",
+    "fase_2_2",
+    "fase_2_3",
+    "fase_2_4",
+    "fase_3",
+    "fase_4",
+    "fase_5",
+  ];
+  const calendarContext = buildApprovedContext(
+    approved.filter((s) => CALENDAR_CTX_PHASES.includes(s.phaseId)),
+  );
 
   const sectionSchema = sectionToolSchema(phaseId, eje);
   if (!sectionSchema) {
     return Response.json({ error: `Sin schema para ${phaseId}` }, { status: 500 });
   }
 
-  const result = streamText({
-    model: await getModel(project.modelProvider),
-    system,
-    messages: modelMessages,
-    stopWhen: stepCountIs(4),
-    tools: {
-      propose_section: tool({
+  const model = await getModel(project.modelProvider);
+
+  const buildTools = (writer: UIMessageStreamWriter): ToolSet =>
+    phaseId === "fase_6"
+      ? {
+          generar_calendario: tool({
+            description:
+              "Construye el calendario de 31 días por semanas en el servidor. Llamar SOLO cuando el cliente confirmó explícitamente el FOMO real del mes.",
+            inputSchema: fase6FomoToolSchema,
+            execute: async ({ fomo }: z.infer<typeof fase6FomoToolSchema>) => {
+              if (!fomo.confirmedByClient) {
+                return {
+                  ok: false,
+                  errors: [
+                    "El cliente aún no confirmó el FOMO real del mes: pregúntaselo antes de generar.",
+                  ],
+                };
+              }
+              // Progreso visible + heartbeat: el stream nunca queda mudo >10s
+              // (cumple proxies y la regla de UI de máx. 2s sin feedback).
+              let last: CalendarProgress = { semana: 1, de: 4, estado: "generando" };
+              const writeProgress = (p: CalendarProgress) => {
+                last = p;
+                writer.write({
+                  type: "data-fase6-progress",
+                  id: "fase6-progress",
+                  data: p,
+                });
+              };
+              const heartbeat = setInterval(() => {
+                writer.write({
+                  type: "data-fase6-progress",
+                  id: "fase6-progress",
+                  data: last,
+                });
+              }, 10_000);
+              try {
+                const res = await generateCalendarInWeeks({
+                  projectId,
+                  clientId: project.clientId,
+                  model,
+                  modelSpec: project.modelProvider,
+                  contexto: calendarContext,
+                  fomo,
+                  prohibido: prohibitedBlock || undefined,
+                  onProgress: writeProgress,
+                });
+                if (!res.ok) {
+                  return { ok: false, errors: res.errors };
+                }
+                return {
+                  ok: true,
+                  message:
+                    "Calendario de 31 días construido y guardado como borrador. El cliente verá la tarjeta de propuesta con botones Aprobar / Pedir cambios.",
+                };
+              } catch (err) {
+                console.error("Pipeline de calendario falló:", err);
+                return {
+                  ok: false,
+                  errors: [
+                    "La generación se interrumpió. El avance parcial quedó guardado: reintenta y continuará desde la última semana válida.",
+                  ],
+                };
+              } finally {
+                clearInterval(heartbeat);
+              }
+            },
+          }),
+        }
+      : {
+          propose_section: tool({
         description: `Propone el contenido final de la fase actual (${phase.title}) para aprobación del cliente. Llamar solo cuando el contenido esté completo según las instrucciones de la fase.`,
         inputSchema: sectionSchema,
         execute: async (input: unknown) => {
@@ -176,9 +276,18 @@ export async function POST(req: NextRequest) {
               "Propuesta guardada como borrador. El cliente verá la tarjeta con botones Aprobar / Pedir cambios.",
           };
         },
-      }),
-    },
-    onFinish: async ({ steps, totalUsage }) => {
+          }),
+        };
+
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      const result = streamText({
+        model,
+        system,
+        messages: modelMessages,
+        stopWhen: stepCountIs(4),
+        tools: buildTools(writer),
+        onFinish: async ({ steps, totalUsage }) => {
       const text = steps
         .map((s) => s.text)
         .filter((t) => t && t.trim().length > 0)
@@ -217,8 +326,12 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error("UsageLog falló (no bloquea la respuesta):", err);
       }
+        },
+      });
+
+      writer.merge(result.toUIMessageStream());
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return createUIMessageStreamResponse({ stream });
 }

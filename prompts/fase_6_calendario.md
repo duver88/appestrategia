@@ -16,7 +16,11 @@ ANTES de construir la semana 4, pregunta al cliente cuál es el FOMO REAL del me
 - La prueba social usa casos del Credibility Bank (no inventados).
 
 ## Salida
-Llama a `propose_section` con:
-- `fomo`: { descripcion, tipo, confirmedByClient }
-- `dias`: array de exactamente 31 objetos { dia, diaSemana, angulo, uso, formato, hook, ideaCentral, magnet (string|null), cta }
-- `verificacion`: { angulosDistintos, formatosDistintos, fomoConfirmado, pruebaSocialConCasos }
+NO escribas tú los 31 días. Cuando el cliente confirme el FOMO real, llama a la
+tool `generar_calendario` con SOLO ese FOMO:
+- `fomo`: { descripcion, tipo, confirmedByClient: true }
+
+El servidor construye el calendario semana a semana (el cliente ve el progreso
+en pantalla) y lo deja como borrador para su aprobación. Si la tool devuelve
+ok=false, explica el problema en una frase y ofrece reintentar: el avance
+parcial se conserva y la generación continúa desde la última semana válida.

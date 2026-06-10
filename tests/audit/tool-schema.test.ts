@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { ACTIVE_PHASE_IDS } from "@/lib/state-machine/phases";
-import { sectionToolSchema } from "@/lib/schemas";
+import {
+  sectionToolSchema,
+  fase6WeekSchema,
+  fase6FomoToolSchema,
+  FASE6_WEEK_RANGES,
+} from "@/lib/schemas";
 
 const EJES = ["CREENCIA_CONTRARIA", "PROCESO", "RESULTADO", "COMBINACION"];
 
@@ -22,6 +27,18 @@ describe("schema de la tool propose_section", () => {
         expect(json.type, `raíz de ${phaseId}`).toBe("object");
       }
     }
+  });
+
+  it("los schemas de semana del calendario tienen raíz type object", () => {
+    // El pipeline por semanas usa una llamada por semana: cada sub-schema
+    // (y el input de generar_calendario) debe ser objeto en la raíz para
+    // los 4 proveedores (anthropic/openai/deepseek/openai_compatible).
+    for (let w = 0; w < FASE6_WEEK_RANGES.length; w++) {
+      const json = z.toJSONSchema(fase6WeekSchema(w)) as { type?: string };
+      expect(json.type, `semana ${w + 1}`).toBe("object");
+    }
+    const fomoJson = z.toJSONSchema(fase6FomoToolSchema) as { type?: string };
+    expect(fomoJson.type, "input de generar_calendario").toBe("object");
   });
 
   it("la variante de fase_2_1 valida contra el schema de guardado (unión)", async () => {

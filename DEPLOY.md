@@ -58,6 +58,23 @@ Cubre: 403 de `/api/admin/*` para CLIENT, regresión del flujo de cliente,
 bloqueo por suspensión + recuperación al extender, versionado/restauración de
 prompts y enmascaramiento de credenciales (15 checks).
 
+## Nginx: timeouts para el chat con streaming largo
+
+La generación del calendario (fase_6) mantiene el stream abierto 1-3 minutos
+con heartbeat cada 10s. El default de Nginx (`proxy_read_timeout 60s`) lo
+cortaría: usar esta config para la ruta del chat:
+
+```nginx
+location /api/chat {
+    proxy_pass http://app:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_buffering off;          # streaming sin buffer
+    proxy_read_timeout 300s;      # acorde al maxDuration=300 de la ruta
+    proxy_send_timeout 300s;
+}
+```
+
 ## Notas SQLite → PostgreSQL
 
 En producción convertir: campos `String` de estado a enums (`Role`,

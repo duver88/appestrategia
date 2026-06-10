@@ -58,7 +58,14 @@
       "Bash(./audit.sh)",
       "PowerShell(node scripts/fix-forbidden-term.js)",
       "PowerShell($ok=$false; foreach \\($i in 1..15\\) { try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/login\" -UseBasicParsing -TimeoutSec 3; if \\($r.StatusCode -eq 200\\) { $ok=$true; break } } catch { Start-Sleep -Milliseconds 800 } }; \"server: $ok\")",
-      "PowerShell(node scripts/diag-deepseek.js 2>&1 | Select-Object -First 20; node -e \"const {PrismaClient}=require\\('@prisma/client'\\); const p=new PrismaClient\\(\\); \\(async\\(\\)=>{ const pr=await p.project.findMany\\({select:{title:true,currentPhase:true,modelProvider:true,status:true},orderBy:{updatedAt:'desc'},take:5}\\); console.table\\(pr\\); process.exit\\(0\\); }\\)\\(\\)\")"
+      "PowerShell(node scripts/diag-deepseek.js 2>&1 | Select-Object -First 20; node -e \"const {PrismaClient}=require\\('@prisma/client'\\); const p=new PrismaClient\\(\\); \\(async\\(\\)=>{ const pr=await p.project.findMany\\({select:{title:true,currentPhase:true,modelProvider:true,status:true},orderBy:{updatedAt:'desc'},take:5}\\); console.table\\(pr\\); process.exit\\(0\\); }\\)\\(\\)\")",
+      "PowerShell(node scripts/diag-fase6-setup.js)",
+      "PowerShell(node scripts/diag-fase6-run.js)",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\duver\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-duver-Desktop-Proyecto-APP-Estrategia\\\\248e57b3-07e0-4c87-b612-81dc19331f11\\\\tasks\\\\bn8acnyhc.output\" -Tail 15; node -e \"const {PrismaClient}=require\\('@prisma/client'\\); const p=new PrismaClient\\(\\); \\(async\\(\\)=>{ const pr=await p.project.findFirst\\({where:{title:'Diagnóstico fase_6'}}\\); const logs=await p.usageLog.findMany\\({where:{projectId:pr.id},orderBy:{createdAt:'desc'}}\\); for \\(const l of logs\\) console.log\\('UsageLog:', JSON.stringify\\({in:l.inputTokens,out:l.outputTokens,costUsd:l.costUsd,model:l.model}\\)\\); process.exit\\(0\\); }\\)\\(\\)\")",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 15; \"tsc: $LASTEXITCODE\")",
+      "PowerShell(node scripts/update-fase6-prompts.js)",
+      "PowerShell(Out-Null *)",
+      "PowerShell(node -e \"const {PrismaClient}=require\\('@prisma/client'\\); const p=new PrismaClient\\(\\); \\(async\\(\\)=>{ const pr=await p.project.findFirst\\({where:{title:'Diagnóstico fase_6'}}\\); const s=await p.section.findUnique\\({where:{projectId_phaseId:{projectId:pr.id,phaseId:'fase_6'}}}\\); const d=JSON.parse\\(s.data\\); const ang=new Set\\(d.dias.map\\(x=>x.angulo.toLowerCase\\(\\)\\)\\); const fmt=new Set\\(d.dias.map\\(x=>x.formato.toLowerCase\\(\\)\\)\\); console.log\\('dias:',d.dias.length,'angulos distintos:',ang.size,'formatos distintos:',fmt.size,'fomoConfirmado:',d.fomo.confirmedByClient\\); const logs=await p.usageLog.findMany\\({where:{projectId:pr.id}}\\); console.log\\('llamadas LLM:',logs.length,'costo total: $'+logs.reduce\\(\\(a,l\\)=>a+l.costUsd,0\\).toFixed\\(4\\)\\); process.exit\\(0\\); }\\)\\(\\)\")"
     ]
   }
 }

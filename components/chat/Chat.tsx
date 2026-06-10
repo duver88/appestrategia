@@ -22,6 +22,7 @@ import { MessageBubble, TypingIndicator } from "./MessageBubble";
 import { ProposalCard } from "./ProposalCard";
 import { Button } from "@/components/ui/button";
 import { getPhase } from "@/lib/state-machine/phases";
+import { cn } from "@/lib/utils";
 import type { MessageDTO, SectionDTO } from "@/lib/types";
 
 const APPROVAL_MESSAGE = "He aprobado la sección. Continuemos con la siguiente fase.";
@@ -73,6 +74,13 @@ export function Chat({
   const [hint, setHint] = useState<string | null>(null);
   // Confirmación elegante tras aprobar (desaparece al llegar la transición).
   const [justApproved, setJustApproved] = useState<string | null>(null);
+  // Progreso del calendario por semanas (data parts del servidor).
+  const [calProgress, setCalProgress] = useState<{
+    semana: number;
+    de: number;
+    estado: string;
+    detalle?: string;
+  } | null>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [showNewBtn, setShowNewBtn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -102,9 +110,25 @@ export function Chat({
     id: projectId,
     transport,
     messages: toUIMessages(initialMessages),
+    // Máx ~10 renders/seg durante el streaming (el tab nunca se satura).
+    experimental_throttle: 100,
+    onData: (part) => {
+      if (part.type === "data-fase6-progress") {
+        const p = part.data as {
+          semana: number;
+          de: number;
+          estado: string;
+          detalle?: string;
+        };
+        setCalProgress(p);
+        // El borrador ya está en DB: mostrar la tarjeta sin esperar al cierre.
+        if (p.estado === "listo") onSectionsChanged();
+      }
+    },
     onFinish: () => {
       onSectionsChanged();
       setJustApproved(null);
+      setCalProgress(null);
     },
   });
 
@@ -250,6 +274,62 @@ export function Chat({
           )}
 
           {status === "submitted" && <TypingIndicator />}
+
+          {/* Progreso del calendario por semanas — nunca pantalla muda */}
+          {calProgress && busy && (
+            <div className="animate-enter-fade rounded-2xl border border-line-200 border-t-[3px] border-t-cyan-400 bg-white p-5 shadow-card">
+              <p className="eyebrow mb-2.5">
+                Calendario · Semana {Math.min(calProgress.semana, 4)} de {calProgress.de}
+              </p>
+              <p className="text-[16px] font-extrabold text-navy-900">
+                {calProgress.estado === "generando" &&
+                  `Construyendo semana ${calProgress.semana} de ${calProgress.de}…`}
+                {calProgress.estado === "validando" &&
+                  `Verificando las reglas de la semana ${calProgress.semana}…`}
+                {calProgress.estado === "reintentando" &&
+                  `Ajustando la semana ${calProgress.semana} para cumplir las reglas…`}
+                {calProgress.estado === "ensamblando" && "Ensamblando el mes completo…"}
+                {calProgress.estado === "listo" && "Calendario listo: preparando la propuesta…"}
+                {calProgress.estado === "error" &&
+                  `No se pudo completar la semana ${calProgress.semana}.`}
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                {[1, 2, 3, 4].map((w) => {
+                  const done =
+                    calProgress.estado === "listo" || w < calProgress.semana;
+                  const active = !done && w === calProgress.semana;
+                  return (
+                    <span key={w} className="flex flex-1 items-center gap-2">
+                      <span
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0 rounded-full",
+                          done && "bg-cyan-400",
+                          active &&
+                            calProgress.estado !== "error" &&
+                            "animate-pulse-cyan border-2 border-cyan-400 bg-white",
+                          active && calProgress.estado === "error" && "bg-danger-500",
+                          !done && !active && "border-2 border-line-200 bg-white",
+                        )}
+                      />
+                      {w < 4 && (
+                        <span
+                          className={cn(
+                            "h-0.5 flex-1 rounded-full",
+                            w < calProgress.semana ? "bg-cyan-400" : "bg-line-200",
+                          )}
+                        />
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+              {calProgress.detalle && (
+                <p className="mt-2.5 text-[12.5px] font-semibold text-ink-400">
+                  {calProgress.detalle}
+                </p>
+              )}
+            </div>
+          )}
 
           {draftSection && !busy && (
             <ProposalCard

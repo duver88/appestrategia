@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -17,7 +18,9 @@ function AssistantAvatar() {
   );
 }
 
-export function MessageBubble({
+// React.memo: durante el streaming solo cambia el último mensaje — las demás
+// burbujas no deben re-ejecutar ReactMarkdown en cada chunk.
+export const MessageBubble = memo(function MessageBubble({
   role,
   text,
   showAvatar = true,
@@ -73,7 +76,7 @@ export function MessageBubble({
       {timeEl}
     </div>
   );
-}
+});
 
 export function TypingIndicator() {
   return (
