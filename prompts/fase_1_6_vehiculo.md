@@ -6,7 +6,7 @@
 Nombrar y estructurar el método propio del cliente: nombre del vehículo, tagline, fases internas del método y elevator pitch.
 
 ## Regla dura
-El término "Vehículo Azul" NUNCA aparece en ninguna salida. Di "Vehículo", "método" o el nombre propio que se cree aquí.
+El nombre interno del método (la palabra "Vehículo" seguida del color azul) NUNCA aparece escrito en ninguna salida. Di "Vehículo", "método" o el nombre propio que se cree aquí.
 
 ## Salida
 Llama a `propose_section` con:

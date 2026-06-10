@@ -53,7 +53,10 @@
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 10; \"tsc: $LASTEXITCODE\")",
       "PowerShell($f = Get-ChildItem \"node_modules\\\\@ai-sdk\\\\provider\\\\dist\" -Filter \"index.d.ts\" | Select-Object -First 1 -ExpandProperty FullName; $c = [System.IO.File]::ReadAllText\\($f\\); $i = $c.IndexOf\\(\"type LanguageModelV3FinishReason\"\\); $c.Substring\\($i, 400\\))",
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 6; \"tsc: $LASTEXITCODE\")",
-      "PowerShell(git *)"
+      "PowerShell(git *)",
+      "Bash(chmod +x audit.sh deploy.sh)",
+      "Bash(./audit.sh)",
+      "PowerShell(node scripts/fix-forbidden-term.js)"
     ]
   }
 }
