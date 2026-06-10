@@ -1,0 +1,127 @@
+// NOTA SQLite vs PostgreSQL:
+// SQLite (desarrollo) no soporta `enum` ni `Json` nativos en Prisma, por eso
+// ProjectMode/ProjectStatus/SectionStatus y Section.data son String aquí.
+// Los valores válidos se tipan estrictamente en /lib/types.ts y se validan con Zod.
+// Para producción con PostgreSQL: cambiar provider a "postgresql", convertir esos
+// String en enums reales, `Section.data` a Json y `Message.content` a @db.Text.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  passwordHash       String
+  name               String
+  role               String   @default("CLIENT") // Role: CLIENT | SUPER_ADMIN (uno solo, por seed)
+  mustChangePassword Boolean  @default(false)
+  clientId           String?  @unique // si role=CLIENT, su ficha de cliente
+  client             Client?  @relation(fields: [clientId], references: [id])
+  createdAt          DateTime @default(now())
+}
+
+model Client {
+  id                  String    @id @default(cuid())
+  name                String
+  business            String
+  membershipExpiresAt DateTime? // vencimiento de la membresía (el panel admin la gestiona)
+  status              String    @default("ACTIVE") // ClientStatus: ACTIVE | SUSPENDED
+  createdAt           DateTime  @default(now())
+  projects            Project[]
+  user                User?
+}
+
+model Project {
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id])
+  title         String // "Mes 1 — Arquitectura", "Mes 2 — Calendario Marzo"
+  mode          String // ProjectMode: MODO_1 | MODO_2
+  parentId      String? // En MODO_2 apunta al proyecto Mes 1 (hereda arquitectura)
+  currentPhase  String // id de la fase actual, ej: "fase_1_3"
+  status        String    @default("IN_PROGRESS") // ProjectStatus: IN_PROGRESS | REVIEW | COMPLETED
+  brandColor    String? // hex para portada/cierre del PDF
+  modelProvider String    @default("anthropic:claude-sonnet-4-5")
+  pdfUrl        String?
+  helpRequested Boolean   @default(false) // botón "Necesito ayuda humana" del cliente
+  archivedAt    DateTime? // archivado desde el panel admin (no se borra)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sections      Section[]
+  messages      Message[]
+}
+
+// ——— Modelos del panel super admin (cambios ADITIVOS) ———
+
+model ApiCredential {
+  id           String    @id @default(cuid())
+  provider     String    @unique // "anthropic" | "openai" | "deepseek" | "openai_compatible"
+  baseUrl      String? // solo para openai_compatible
+  encryptedKey String // AES-256-GCM con APP_ENCRYPTION_KEY (lib/crypto.ts)
+  isActive     Boolean   @default(true)
+  lastTestedAt DateTime?
+  lastTestOk   Boolean?
+  updatedAt    DateTime  @updatedAt
+}
+
+model PromptTemplate {
+  id        String   @id @default(cuid())
+  phaseId   String // "master_rules", "fase_0"... "fase_6_calendario", "modo_2_renovacion"
+  version   Int // cada guardado crea versión nueva; nunca se sobrescribe
+  content   String
+  isActive  Boolean // solo una versión activa por phaseId
+  createdAt DateTime @default(now())
+
+  @@unique([phaseId, version])
+}
+
+model UsageLog {
+  id           String   @id @default(cuid())
+  projectId    String
+  clientId     String
+  phaseId      String
+  provider     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  costUsd      Float // en PostgreSQL: Decimal @db.Decimal(10,6)
+  createdAt    DateTime @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+model Setting {
+  key   String @id // "default_model" | "price_table" | "expired_screen_text" | "branding" | "smtp" | "membership_enforcement"
+  value String // JSON serializado (SQLite no soporta Json nativo)
+}
+
+model Section {
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id])
+  phaseId    String // "fase_1_3"
+  data       String // JSON serializado, validado con Zod antes de guardar
+  status     String // SectionStatus: DRAFT | APPROVED
+  version    Int       @default(1) // cada corrección aprobada incrementa versión
+  needsReview Boolean  @default(false) // marcado ⚠ por corrección retroactiva de una fase anterior
+  approvedAt DateTime?
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([projectId, phaseId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  phaseId   String // a qué fase pertenece el mensaje
+  role      String // user | assistant
+  content   String
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+.env
+*.db
+*.db-journal
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+/generated
+# PDFs generados (datos confidenciales de clientes)
+/storage/
+# Backups locales de la DB
+/backups/
+# DB de la suite de auditoría
+tests/audit/.test.db*

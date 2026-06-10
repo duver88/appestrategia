@@ -1,0 +1,17 @@
+"use client";
+
+import { signOut } from "next-auth/react";
+import { LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export function SignOutButton() {
+  return (
+    <Button
+      variant="secondary"
+      onClick={() => void signOut({ callbackUrl: "/login" })}
+      aria-label="Cerrar sesión"
+    >
+      <LogOut className="h-4 w-4" /> Salir
+    </Button>
+  );
+}
