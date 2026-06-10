@@ -107,7 +107,7 @@ model Section {
   project    Project   @relation(fields: [projectId], references: [id])
   phaseId    String // "fase_1_3"
   data       String // JSON serializado, validado con Zod antes de guardar
-  status     String // SectionStatus: DRAFT | APPROVED
+  status     String // SectionStatus: DRAFT | APPROVED | PARTIAL (avance del calendario por semanas)
   version    Int       @default(1) // cada corrección aprobada incrementa versión
   needsReview Boolean  @default(false) // marcado ⚠ por corrección retroactiva de una fase anterior
   approvedAt DateTime?
