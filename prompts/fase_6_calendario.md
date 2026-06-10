@@ -1,6 +1,118 @@
 # PARTE 6 — CALENDARIO DE 31 DÍAS
 
-> [NOTA AGENCIA: pegar aquí el texto literal de la Parte 6 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PARTE 6 — CALENDARIO DE 31 DÍAS
+
+EXPLICACIÓN PARA EL CLIENTE:
+"El calendario define qué publicar cada día del mes, con qué
+ángulo, en qué formato y con qué objetivo. Tiene una lógica
+de 4 semanas que construye confianza y termina vendiendo.
+Este calendario se renueva cada mes — las ideas cambian,
+la estructura no."
+ORDEN EXACTO DE ÁNGULOS:
+DÍA 01 Lun — Errores — ATRACCIÓN
+DÍA 02 Mar — Dolor Emocional — ATRACCIÓN
+DÍA 03 Mié — Prueba Social — NUTRICIÓN
+DÍA 04 Jue — Venta Directa — CONVERSIÓN
+DÍA 05 Vie — Vinculación — NUTRICIÓN
+DÍA 06 Sáb — Enemigos — ATRACCIÓN
+DÍA 07 Dom — Venta Directa — CONVERSIÓN
+DÍA 08 Lun — Objeciones — CONVERSIÓN
+DÍA 09 Mar — Viral — ATRACCIÓN
+DÍA 10 Mié — Autoridad — NUTRICIÓN
+DÍA 11 Jue — Demostración — NUTRICIÓN
+DÍA 12 Vie — Storytelling — NUTRICIÓN
+DÍA 13 Sáb — Enemigos — ATRACCIÓN
+DÍA 14 Dom — Comparación — CONVERSIÓN
+
+DÍA 15 Lun — Dolor Emocional — ATRACCIÓN
+DÍA 16 Mar — Viral — ATRACCIÓN
+DÍA 17 Mié — Prueba Social — NUTRICIÓN
+DÍA 18 Jue — Venta Directa — CONVERSIÓN
+DÍA 19 Vie — Deseo — NUTRICIÓN
+DÍA 20 Sáb — Técnico — ATRACCIÓN
+DÍA 21 Dom — Venta Directa — CONVERSIÓN
+DÍA 22 Lun — Objeciones — CONVERSIÓN ← SEMANA 4: VENTA AGRESIVA
+DÍA 23 Mar — Dolor Emocional — ATRACCIÓN
+DÍA 24 Mié — Oportunidad — ATRACCIÓN
+DÍA 25 Jue — Demostración — NUTRICIÓN
+DÍA 26 Vie — Prueba Social — NUTRICIÓN
+DÍA 27 Sáb — Dudas — CONVERSIÓN
+DÍA 28 Dom — Deseo — NUTRICIÓN
+DÍA 29 Lun — Comparación — CONVERSIÓN
+DÍA 30 Mar — Técnico — NUTRICIÓN
+DÍA 31 Mié — Venta Directa — CONVERSIÓN
+LÓGICA POR SEMANA:
+Semana 1 (1-7): Instalar el eje de posicionamiento. Audiencia fría.
+Semana 2 (8-14): Construir autoridad y demostrar el mecanismo.
+Semana 3 (15-21): Nuevos casos y ángulos. Reforzar confianza.
+Semana 4 (22-31): VENTA AGRESIVA con FOMO real.
+SOBRE EL FOMO — EXPLICACIÓN PARA EL CLIENTE:
+"FOMO significa 'miedo a perderse algo'. En la semana 4 usamos
+urgencia real para que el cliente decida ahora y no después.
+Esta urgencia DEBE ser verdadera — nunca inventada. Una mentira
+destruye la credibilidad que tardaste meses en construir."
+FOMO VÁLIDO: precio especial de lanzamiento / bonus exclusivo
+este mes / live o sesión grupal solo este periodo /
+cupos genuinamente limitados.
+FOMO INVÁLIDO: "se acaban los cupos" en cursos pregrabados /
+"después de esta fecha no hay acceso" si eso es mentira.
+PREGUNTA OBLIGATORIA ANTES DE CONSTRUIR LA SEMANA 4:
+"¿Qué FOMO real existe para este negocio este mes?
+¿Hay precio especial, bonus exclusivo o algo que genuinamente
+desaparezca al terminar el mes?"
+Si no hay FOMO real — construir uno real junto al cliente
+antes de seguir.
+FORMATOS SEGÚN PERSONA VISIBLE:
+A. PERSONA VISIBLE COMPLETAMENTE:
+Todos los formatos disponibles — Talking Head, Talk & Walk,
+
+Selfie, Micrófono en Mano, Vlog, Reacción, etc.
+B. PERSONA VISIBLE PARCIALMENTE:
+Reducir formatos con cara — más Broll+VO, Carrusel,
+iPad/Miro, Pantalla Dividida. Usar persona visible
+estratégicamente en los días de mayor impacto.
+C. SIN PERSONA VISIBLE:
+Solo formatos sin cara — Broll+VO, Carrusel, Broll con Texto,
+Narración AI, Mixed Media, Meme, iPad/Miro.
+El contenido lo sostiene el producto, los resultados y la marca.
+LISTA COMPLETA DE ÁNGULOS (18):
+Dolor Emocional, Problema, Errores, Enemigos, Dudas, Deseo,
+Storytelling, Autoridad, Prueba Social, Objeciones, Comparación,
+Controversia, Técnico, Vinculación, Oportunidad, Demostración,
+Venta Directa, Viral.
+LISTA COMPLETA DE FORMATOS (19):
+Talking Head, Talk & Walk, POV, Selfie, Vlog, Broll+VO,
+Mockup Podcast, Responder Sticker, Pantalla Verde,
+Micrófono en Mano, Mixed Media, Pantalla Dividida,
+Broll con Texto, iPad/Miro, Narración AI, Reacción,
+Personajes Actuados, Carrusel, Meme.
+CORRESPONDENCIAS ÁNGULO → FORMATO:
+Errores, Controversia, Oportunidad → Micrófono en Mano
+Storytelling, Autoridad, Venta Directa → Talk & Walk
+Comparación, Dudas → Pantalla Dividida
+Objeciones, Errores, Enemigos → Reacción
+Vinculación, Dolor Emocional, Problema → Selfie
+Dudas frecuentes → Responder Sticker
+Viral, Deseo, Dolor Emocional → Broll+VO
+Técnico, Demostración → iPad/Miro
+TIPOS DE USO (solo 3):
+ATRACCIÓN — audiencia fría
+NUTRICIÓN — audiencia tibia
+CONVERSIÓN — audiencia caliente
+CTAs CONVERSIÓN — solo dos opciones:
+- "Si quieres conocer el proceso completo — ingresa ya."
+- "Escríbenos y te contamos todo."
+VERIFICACIÓN OBLIGATORIA ANTES DE ENTREGAR EL CALENDARIO:
+Antes de dar el calendario por terminado, verificar:
+✓ Ningún ángulo se repite más de 2 veces seguidas
+
+✓ Ningún formato se repite más de 3 veces en total
+✓ La semana 4 tiene FOMO real confirmado con el cliente
+✓ Los días de Prueba Social tienen casos reales o placeholders
+humanos — nunca vacíos ni genéricos
+✓ Hay al menos 10 ángulos distintos en los 31 días
+✓ Hay al menos 8 formatos distintos en los 31 días
 
 ## Objetivo
 Construir el calendario completo de 31 días siguiendo el ORDEN EXACTO de ángulos del master. El servidor lo genera semana a semana: tu trabajo en el chat es confirmar el FOMO y los CTAs canónicos, y disparar la tool.

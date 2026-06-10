@@ -167,6 +167,76 @@ describe("adición 1 — listas canónicas y filtrado", () => {
     expect(validateCalendar(data, { personaVisible: "NINGUNA" })).toHaveLength(0);
   });
 
+  it("proyecto PARCIAL genera un calendario válido por el pipeline (caso Hernesto)", async () => {
+    const { FORMATOS_SIN_CARA, FORMATOS_CON_CARA } = await import("@/lib/calendar/catalogs");
+    const a = await createClientWithUser(`Parcial ${Date.now()}`);
+    const project = await createProject(a.client.id, { currentPhase: "fase_6" });
+    // 2 días con cara por semana (8/mes), el resto sin cara cíclico.
+    let sinCaraIdx = 0;
+    const opts: GenerateCalendarOptions = {
+      projectId: project.id,
+      clientId: a.client.id,
+      model: null as unknown as LanguageModel,
+      modelSpec: "test:fake",
+      contexto: "Contexto",
+      fomo: FOMO,
+      ctas: CTAS_TEST,
+      personaVisible: "PARCIAL",
+      onProgress: () => {},
+      generateWeekFn: async ({ weekIndex }) => {
+        const [from, to] = FASE6_WEEK_RANGES[weekIndex];
+        let caraUsada = 0;
+        return {
+          dias: Array.from({ length: to - from + 1 }, (_, k) => {
+            const base = canonicalDay(from + k);
+            if (caraUsada < 2 && base.uso === "CONVERSION") {
+              caraUsada++;
+              return { ...base, formato: FORMATOS_CON_CARA[weekIndex * 2 + caraUsada - 1] };
+            }
+            return {
+              ...base,
+              formato: FORMATOS_SIN_CARA[sinCaraIdx++ % FORMATOS_SIN_CARA.length],
+            };
+          }),
+        };
+      },
+    };
+    const res = await generateCalendarInWeeks(opts);
+    expect(res.ok).toBe(true);
+    const section = await prisma.section.findUnique({
+      where: { projectId_phaseId: { projectId: project.id, phaseId: "fase_6" } },
+    });
+    const data = fase6Schema.parse(JSON.parse(section!.data));
+    expect(validateCalendar(data, { personaVisible: "PARCIAL" })).toHaveLength(0);
+  });
+
+  it("la sugerencia del servidor nunca excede el presupuesto con cara (bug Hernesto)", async () => {
+    const { feasibleFormatPlan } = await import("@/lib/calendar/generate");
+    const { esConCara, FORMATOS_CON_CARA } = await import("@/lib/calendar/catalogs");
+    const countCara = (plan: string) =>
+      plan
+        .split(", ")
+        .filter(Boolean)
+        .reduce((acc, item) => {
+          const [f, n] = item.split("×");
+          return acc + (esConCara(f) ? parseInt(n, 10) : 0);
+        }, 0);
+
+    // Semana vacía: presupuesto cara = 2.
+    expect(countCara(feasibleFormatPlan([], 7, "PARCIAL"))).toBeLessThanOrEqual(2);
+    // Mes casi agotado: 7 días con cara ya usados → presupuesto = 1.
+    const otros = Array.from({ length: 7 }, (_, i) => ({
+      ...canonicalDay(i + 8),
+      formato: FORMATOS_CON_CARA[i % FORMATOS_CON_CARA.length],
+    }));
+    expect(countCara(feasibleFormatPlan(otros, 7, "PARCIAL"))).toBeLessThanOrEqual(1);
+    // Y el plan sigue cubriendo la semana completa con sin-cara.
+    const total = feasibleFormatPlan(otros, 7, "PARCIAL")
+      .split(", ")
+      .reduce((a, x) => a + parseInt(x.split("×")[1], 10), 0);
+    expect(total).toBe(7);
+  });
+
   it("proyecto PARCIAL respeta el tope 2/semana–8/mes de formatos con cara", () => {
     const cal = base();
     // Forzar 3 días CON CARA en la semana 1 (sin romper otros topes).

@@ -18,7 +18,7 @@ import {
   esConCara,
   PARCIAL_CARA_MAX_SEMANA,
   PARCIAL_CARA_MAX_MES,
-  MAX_USOS_FORMATO_MES_NINGUNA,
+  maxUsosMesFormato,
   ANGULOS_ALTO_IMPACTO,
   GUIA_ANGULO_FORMATO,
 } from "@/lib/calendar/catalogs";
@@ -149,10 +149,9 @@ export function validateWeek(
     }
   }
 
-  // Tope de formatos: ≤2 usos POR SEMANA y tope mensual (semana + resto).
-  // NINGUNA: tope mensual 4 (8 formatos × 3 = 24 < 31 días — infeasible).
-  const maxUsosMes =
-    ctx.personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3;
+  // Tope de formatos: ≤2 usos POR SEMANA y tope mensual (semana + resto);
+  // los SIN CARA suben a 4/mes cuando la persona no es COMPLETA (feasibilidad).
+  const persona = ctx.personaVisible ?? "COMPLETA";
   const otherFormats = usedCounts(otherDays, "formato");
   const weekFormats = usedCounts(dias, "formato");
   for (const [f, n] of weekFormats) {
@@ -162,10 +161,11 @@ export function validateWeek(
       );
       continue;
     }
+    const cap = maxUsosMesFormato(persona, f);
     const total = n + (otherFormats.get(f) ?? 0);
-    if (total > maxUsosMes) {
+    if (total > cap) {
       errors.push(
-        `El formato "${f}" quedaría con ${total} usos en el mes (máximo ${maxUsosMes}): usa otros formatos en esta semana.`,
+        `El formato "${f}" quedaría con ${total} usos en el mes (máximo ${cap}): usa otros formatos en esta semana.`,
       );
     }
   }
@@ -253,33 +253,88 @@ export function validateWeek(
   return errors;
 }
 
-/** Cupos restantes por formato del catálogo PERMITIDO (mes − usados; semana máx 2). */
+/** Presupuesto agregado de días CON CARA para una semana (PARCIAL). */
+export function caraBudget(
+  otherDays: Dia[],
+  personaVisible: string,
+): { semana: number; mes: number } {
+  if (personaVisible !== "PARCIAL") {
+    // COMPLETA: sin límite agregado · NINGUNA: el enum ya impide la cara.
+    return { semana: Infinity, mes: Infinity };
+  }
+  const caraOtros = otherDays.filter((d) => esConCara(d.formato)).length;
+  return {
+    semana: PARCIAL_CARA_MAX_SEMANA,
+    mes: Math.max(0, PARCIAL_CARA_MAX_MES - caraOtros),
+  };
+}
+
+/**
+ * Cupos restantes por formato del catálogo PERMITIDO (tope mensual por
+ * formato − usados; semana máx 2). En PARCIAL, los formatos CON CARA
+ * quedan además acotados por el presupuesto agregado de cara — el cupo
+ * individual jamás promete más de lo que el agregado permite.
+ */
 function formatQuota(otherDays: Dia[], personaVisible: string): Map<string, number> {
   const used = usedCounts(otherDays, "formato");
-  const capMes = personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3;
+  const budget = caraBudget(otherDays, personaVisible);
+  const caraCap = Math.min(budget.semana, budget.mes);
   const quota = new Map<string, number>();
   for (const f of allowedFormats(personaVisible)) {
-    quota.set(f, Math.min(2, capMes - (used.get(norm(f)) ?? 0)));
+    let q = Math.min(
+      2,
+      maxUsosMesFormato(personaVisible, f) - (used.get(norm(f)) ?? 0),
+    );
+    if (esConCara(f)) q = Math.min(q, caraCap);
+    quota.set(f, q);
   }
   return quota;
 }
 
-/** Distribución FACTIBLE de formatos para una semana (para reintentos). */
-function feasibleFormatPlan(
+/**
+ * Distribución FACTIBLE de formatos para una semana (para reintentos).
+ * SIEMPRE satisfacible: prioriza sin-cara y nunca sugiere más días con
+ * cara que el presupuesto agregado (el bug del caso Hernesto era
+ * exactamente este plan sugiriendo distribuciones todo-cara en PARCIAL).
+ */
+export function feasibleFormatPlan(
   otherDays: Dia[],
   daysCount: number,
   personaVisible: string,
 ): string {
-  const quota = [...formatQuota(otherDays, personaVisible).entries()]
-    .filter(([, q]) => q > 0)
+  const quota = [...formatQuota(otherDays, personaVisible).entries()].filter(
+    ([, q]) => q > 0,
+  );
+  const sinCara = quota
+    .filter(([f]) => !esConCara(f))
     .sort((a, b) => b[1] - a[1]);
+  const conCara = quota
+    .filter(([f]) => esConCara(f))
+    .sort((a, b) => b[1] - a[1]);
+
+  const budget = caraBudget(otherDays, personaVisible);
+  let caraRestante = Math.min(budget.semana, budget.mes, daysCount);
   const plan: string[] = [];
   let remaining = daysCount;
-  for (const [f, q] of quota) {
+
+  // Primero la cara permitida (es lo escaso y de mayor impacto)…
+  for (const [f, q] of conCara) {
+    if (remaining <= 0 || caraRestante <= 0) break;
+    const take = Math.min(q, remaining, caraRestante);
+    if (take > 0) {
+      plan.push(`${f}×${take}`);
+      remaining -= take;
+      caraRestante -= take;
+    }
+  }
+  // …y el resto SIEMPRE sin cara.
+  for (const [f, q] of sinCara) {
     if (remaining <= 0) break;
     const take = Math.min(q, remaining);
-    plan.push(`${f}×${take}`);
-    remaining -= take;
+    if (take > 0) {
+      plan.push(`${f}×${take}`);
+      remaining -= take;
+    }
   }
   return plan.join(", ");
 }
@@ -374,11 +429,17 @@ function weekPrompt(args: {
     `# CATÁLOGOS CERRADOS (valores EXACTOS, el schema los rechaza si difieren)`,
     `Ángulos (18): Dolor Emocional, Problema, Errores, Enemigos, Dudas, Deseo, Storytelling, Autoridad, Prueba Social, Objeciones, Comparación, Controversia, Técnico, Vinculación, Oportunidad, Demostración, Venta Directa, Viral.`,
     `Formatos permitidos para este proyecto (persona visible: ${personaVisible}) con su cupo de ESTA SEMANA: ${quotaLine}.`,
-    `Regla de cupos: máximo 2 usos por formato POR SEMANA y ${personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3} EN EL MES.`,
+    `Regla de cupos: máximo 2 usos por formato POR SEMANA; tope mensual 3 por formato (4 para los sin cara cuando la persona no es COMPLETA).`,
     personaVisible === "PARCIAL"
-      ? `PERSONA VISIBLE PARCIAL: máximo ${PARCIAL_CARA_MAX_SEMANA} días CON CARA esta semana y ${PARCIAL_CARA_MAX_MES} en el mes. Reserva la cara para los días de mayor impacto (${ANGULOS_ALTO_IMPACTO.join(", ")}) y prefiere formatos sin cara (Broll+VO, Carrusel, iPad/Miro, Pantalla Dividida…) en el resto.`
+      ? [
+          `PERSONA VISIBLE PARCIAL — PRESUPUESTO CON CARA (mecánico, el servidor lo verifica): esta semana puedes usar formatos con cara en MÁXIMO ${Math.min(caraBudget(otherDays, personaVisible).semana, caraBudget(otherDays, personaVisible).mes)} día(s) (quedan ${caraBudget(otherDays, personaVisible).mes} en el mes de ${PARCIAL_CARA_MAX_MES}).`,
+          `Reserva esos días con cara para los de mayor impacto (${ANGULOS_ALTO_IMPACTO.join(", ")}); TODOS los demás días usan formatos sin cara: Broll+VO, Carrusel, Broll con Texto, Narración AI, Mixed Media, Meme, iPad/Miro, Pantalla Dividida.`,
+        ].join("\n")
       : ``,
     `Guía orientativa ángulo→formato del master (úsala salvo mejor criterio): ${GUIA_ANGULO_FORMATO}.`,
+    personaVisible !== "COMPLETA"
+      ? `Si la guía sugiere un formato CON CARA y no te queda presupuesto, usa la alternativa sin cara más cercana (Comparación/Dudas → Pantalla Dividida · Viral/Deseo/Dolor → Broll+VO · Técnico/Demostración → iPad/Miro · resto → Carrusel o Broll con Texto).`
+      : ``,
     extraErrors && extraErrors.length > 0
       ? `DISTRIBUCIÓN FACTIBLE SUGERIDA (puedes mover formatos entre días, pero respeta los totales): ${feasibleFormatPlan(otherDays, to - from + 1, personaVisible)}.`
       : ``,

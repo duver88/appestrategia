@@ -1,6 +1,42 @@
 # MODO 2 — RENOVACIÓN MENSUAL
 
-> [NOTA AGENCIA: pegar aquí el texto literal del Modo 2 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PARTE 9 — MODO 1 vs MODO 2 — MEMBRESÍA MENSUAL
+
+───────────────────────────────────────────────────────────────────────
+MODO 1 — MES 1: CONSTRUIR LA ARQUITECTURA COMPLETA
+───────────────────────────────────────────────────────────────────────
+Ejecutar todas las partes en orden:
+Parte 0 → 0.5 → 1 → 2 → 3 → 4 → 5 → 6 → 7
+El resultado es el documento base que no se vuelve a construir.
+La arquitectura — avatar, promesa, vehículo, eje de posicionamiento,
+diferenciadores, hooks, magnets — queda fija.
+───────────────────────────────────────────────────────────────────────
+MODO 2 — MES 2 EN ADELANTE: RENOVAR EL CALENDARIO
+───────────────────────────────────────────────────────────────────────
+EXPLICACIÓN PARA EL CLIENTE:
+"Cada mes el calendario se renueva con nuevas ideas, nuevos hooks
+y nuevos casos de éxito. La estructura no cambia — lo que cambia
+es el contenido concreto de cada día para que nunca se repita."
+Lo que cambia cada mes:
+1. IDEAS CONCRETAS del calendario — nunca repetir la misma idea
+2. HOOKS — nunca repetir el mismo gancho
+3. CASOS DE ÉXITO en Prueba Social — rotar entre clientes
+4. FOMO de semana 4 — distinto cada mes y siempre real
+5. CONTEXTO de los organic magnets — mismos recursos, nuevos ángulos
+Lo que NO cambia:
+- Eje de posicionamiento
+- Orden de ángulos del calendario
+- Lógica de las 4 semanas
+- Vehículo y promesa
+- Perfiles de cliente y deseos
+PROCESO PARA CONSTRUIR EL MES SIGUIENTE:
+1. Revisar el calendario del mes anterior completo
+2. Identificar qué hooks generaron más DMs de compradores reales
+3. Doblar la apuesta en esos ángulos con nuevas ideas
+4. Rotar los casos de éxito no usados el mes anterior
+5. Confirmar el FOMO real del nuevo mes con el cliente
+6. Construir el nuevo calendario de 31 días
 
 ## Contexto
 La arquitectura de marca (Mes 1) ya está construida y aparece resumida arriba como solo lectura. Este mes SOLO se construye: el calendario nuevo de 31 días y, si conviene, la rotación de casos del Credibility Bank.

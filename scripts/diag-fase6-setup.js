@@ -18,6 +18,10 @@ const dataSrc = seedSrc
   .replace(/const prisma = new PrismaClient\(\);/, "");
 const SECTIONS = new Function(`${dataSrc}; return SECTIONS;`)();
 
+// Persona visible configurable: node scripts/diag-fase6-setup.js PARCIAL
+const persona = process.argv[2] || "COMPLETA";
+SECTIONS.fase_0 = { ...SECTIONS.fase_0, personaVisible: persona };
+
 (async () => {
   // Limpieza idempotente
   const old = await prisma.user.findUnique({ where: { email: EMAIL } });

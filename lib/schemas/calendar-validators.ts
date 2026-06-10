@@ -9,7 +9,7 @@ import {
   esConCara,
   PARCIAL_CARA_MAX_SEMANA,
   PARCIAL_CARA_MAX_MES,
-  MAX_USOS_FORMATO_MES_NINGUNA,
+  maxUsosMesFormato,
 } from "@/lib/calendar/catalogs";
 
 /**
@@ -51,18 +51,20 @@ export function validateCalendar(
       );
     }
   }
-  // Tope general de usos por formato. Con NINGUNA (solo 8 formatos) el tope
-  // de 3 es infeasible para 31 días (8×3=24): sube a 4 — ver catálogos.
-  const maxUsosMes =
-    ctx.personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3;
+  // Tope de usos por formato: 3 en general; los SIN CARA suben a 4 cuando
+  // la persona no es COMPLETA (feasibilidad — ver catálogos).
+  const persona = ctx.personaVisible ?? "COMPLETA";
   const formatoCount = new Map<string, number>();
+  const formatoOriginal = new Map<string, string>();
   for (const d of dias) {
     const f = norm(d.formato);
     formatoCount.set(f, (formatoCount.get(f) ?? 0) + 1);
+    formatoOriginal.set(f, d.formato);
   }
   for (const [f, count] of formatoCount) {
-    if (count > maxUsosMes) {
-      errors.push(`El formato "${f}" aparece ${count} veces; máximo ${maxUsosMes}.`);
+    const cap = maxUsosMesFormato(persona, formatoOriginal.get(f) ?? f);
+    if (count > cap) {
+      errors.push(`El formato "${f}" aparece ${count} veces; máximo ${cap}.`);
     }
   }
   if (!data.fomo.confirmedByClient) {

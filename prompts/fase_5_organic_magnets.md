@@ -1,6 +1,26 @@
 # PARTE 5 — ORGANIC MAGNETS
 
-> [NOTA AGENCIA: pegar aquí el texto literal de la Parte 5 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PARTE 5 — ORGANIC MAGNETS
+
+EXPLICACIÓN PARA EL CLIENTE:
+"Los organic magnets son recursos gratuitos que entregas
+automáticamente cuando alguien comenta una palabra clave en tu post.
+Su función no es solo dar valor — es abrir la conversación de ventas
+sin perseguir a nadie."
+FLUJO:
+1. Publicar contenido con hook correcto
+2. Pedir comentar palabra clave al final
+3. Automatización envía el recurso por DM
+4. Califica al prospecto
+5. Conversación de ventas se inicia sola
+6. Después de 4-7 días orgánicos → poner pauta al post
+5 TIPOS (adaptar al negocio):
+OM1 — Checklist o lista de errores → días de Errores y Problema
+OM2 — Caso de estudio real → días de Prueba Social
+OM3 — Guía del método → días de Autoridad y Demostración
+OM4 — Demo o video del sistema → días de Demostración
+OM5 — Reporte de oportunidad → días de Oportunidad y Controversia
 
 ## Objetivo
 Diseñar exactamente 5 Organic Magnets (recursos gratuitos que el público pide por DM) con su código, título, formato, razón de deseo, CTA exacto y días del calendario donde se usan.

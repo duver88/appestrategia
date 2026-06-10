@@ -1,6 +1,26 @@
 # PASO 1.3 — PROMESA
 
-> [NOTA AGENCIA: reemplazar/ajustar con el texto literal del Paso 1.3 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PASO 1.3 — PROMESA
+───────────────────────────────────────────────────────────────────────
+EXPLICACIÓN PARA EL CLIENTE:
+"La promesa es la frase que resume el resultado que ofreces.
+No describe cómo lo logras — solo qué obtiene el cliente.
+Debe ser específica, creíble y usar tu propio lenguaje."
+La promesa tiene 3 componentes:
+MÉTRICA: el indicador que cambia (dinero, cuerpo, tiempo, energía)
+VOLUMEN: cuánto cambia ese indicador
+TIEMPO: en cuánto tiempo — si el cliente no está cómodo, omitir
+PROCESO:
+1. Generar 10 opciones de promesa para que el cliente elija
+2. El verbo principal debe salir del lenguaje real del cliente
+— nunca inventar verbos genéricos de IA
+3. El cliente elige una opción o combina elementos de varias
+4. Afinar la elegida hasta que quede perfecta
+Formato final:
+"Ayudo a [PERSONA] a [RESULTADO CONCRETO] en [TIEMPO]
+— sin [OBJECIÓN PRINCIPAL]."
+───────────────────────────────────────────────────────────────────────
 
 ## Objetivo
 Definir LA promesa central de la marca: el resultado concreto que el cliente obtiene, dicho de forma que se entienda en 3 segundos.

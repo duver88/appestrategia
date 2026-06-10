@@ -90,12 +90,21 @@ export const PARCIAL_CARA_MAX_SEMANA = 2;
 export const PARCIAL_CARA_MAX_MES = 8;
 
 /**
- * NINGUNA: con solo 8 formatos y el tope general de 3 usos/mes el máximo
- * alcanzable es 24 < 31 días — infeasible. Resolución mecánica documentada:
- * el tope por formato sube a 4 SOLO en proyectos sin persona visible
- * (8 × 4 = 32 ≥ 31). Señalado al dueño en el reporte de la adición 1.
+ * Feasibilidad del tope mensual por formato:
+ * - NINGUNA: 8 formatos × 3 = 24 < 31 días → infeasible con tope 3.
+ * - PARCIAL: 8 días con cara + 8 sin-cara × 3 = 32 → margen de UN día;
+ *   en la práctica el modelo falla siempre (caso Hernesto: 40 llamadas).
+ * Resolución mecánica documentada y señalada al dueño: los formatos
+ * SIN CARA suben a 4 usos/mes cuando la persona visible NO es COMPLETA
+ * (NINGUNA: 8×4=32 ≥ 31 · PARCIAL: 8 cara + 32 sin-cara = margen 9).
  */
 export const MAX_USOS_FORMATO_MES_NINGUNA = 4;
+
+export function maxUsosMesFormato(personaVisible: string, formato: string): number {
+  return personaVisible !== "COMPLETA" && !esConCara(formato)
+    ? MAX_USOS_FORMATO_MES_NINGUNA
+    : 3;
+}
 
 /** Días de mayor impacto donde PARCIAL reserva la cara (adición 1). */
 export const ANGULOS_ALTO_IMPACTO: AnguloCanonico[] = [

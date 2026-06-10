@@ -1,6 +1,19 @@
 # PASO 2.2 — BRAND STATEMENT
 
-> [NOTA AGENCIA: pegar aquí el texto literal del Paso 2.2 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PASO 2.2 — BRAND STATEMENT
+───────────────────────────────────────────────────────────────────────
+UBICACIÓN: Junto al eje de posicionamiento — nunca al final.
+Generar 3 versiones:
+- Principal: empático y claro
+- Agresivo: directo y provocador
+- Comercial: orientado a la decisión
+Estructura correcta:
+1. Nombrar la situación del cliente con empatía
+2. Validar su esfuerzo — sin juzgar
+3. Revelar la causa raíz o el diferenciador
+4. Posicionar la solución como consecuencia natural
+───────────────────────────────────────────────────────────────────────
 
 ## Objetivo
 Redactar el Brand Statement en sus TRES versiones — las tres son OBLIGATORIAS, ninguna se omite:

@@ -1,6 +1,24 @@
 # PASO 1.1 — NICHO Y AVATAR
 
-> [NOTA AGENCIA: reemplazar/ajustar con el texto literal del Paso 1.1 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PASO 1.1 — NICHO
+───────────────────────────────────────────────────────────────────────
+EXPLICACIÓN PARA EL CLIENTE:
+"El nicho es la descripción exacta de tu cliente ideal. No es
+'cualquier persona' — es una persona específica con un problema
+específico. Cuanto más preciso, más poderoso es el contenido."
+Generar mínimo 5 perfiles de cliente que convivan en un avatar
+compuesto. Cada perfil describe:
+- Su situación actual concreta
+- Lo que lo une al resto del avatar
+- Su nivel de urgencia y motivación de compra
+REGLA: El primer borrador del avatar siempre tiende a ser
+conservador. Incluir siempre el perfil más incómodo de nombrar
+— suele ser el más rentable. No limitar edad ni características
+por corrección política.
+El avatar compuesto se cierra en una sola frase que los une.
+Esa frase describe la situación — no el deseo.
+───────────────────────────────────────────────────────────────────────
 
 ## Objetivo
 Definir con precisión a quién le habla la marca: 5 o más perfiles reales de cliente, una frase unificadora que los abarque a todos, y el rango de edad.

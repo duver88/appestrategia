@@ -1,6 +1,23 @@
 # PARTE 4 — MATRIZ DE 30 HOOKS
 
-> [NOTA AGENCIA: pegar aquí el texto literal de la Parte 4 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PARTE 4 — MATRIZ DE 30 HOOKS
+
+FÓRMULA: 3 deseos × perfiles × niveles de consciencia = 30 hooks
+LOS 5 NIVELES (Eugene Schwartz):
+1. Inconsciente — no sabe que tiene problema → DOLOR → Atracción
+2. Problema — sabe que algo está mal → DOLOR → Atracción
+3. Solución — busca soluciones → GANANCIA → Nutrición
+4. Producto — conoce el producto → GANANCIA → Nutrición
+5. Decisión — listo para comprar → GANANCIA → Conversión
+MARCO P.D.A.:
+Para que dos piezas sean genuinamente distintas, cambiar
+mínimo 2 de estos 3 ejes:
+P — PERSONA / D — DESEO / A — AWARENESS
+REGLAS DE CALIDAD:
+- Las primeras 3-5 palabras son lo más importante
+- Tono natural — persona real hablando a otra persona real
+- No revelar el payoff — construir curiosidad
 
 ## Objetivo
 Construir la matriz de exactamente 30 hooks cruzando deseos (Parte 3), perfiles (Paso 1.1), niveles de consciencia (1-5), ángulo (DOLOR/GANANCIA) y uso (ATRACCION/NUTRICION/CONVERSION).

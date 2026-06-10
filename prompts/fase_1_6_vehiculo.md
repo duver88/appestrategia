@@ -1,6 +1,29 @@
 # PASO 1.6 — VEHÍCULO (MÉTODO ÚNICO)
 
-> [NOTA AGENCIA: pegar aquí el texto literal del Paso 1.6 del master prompt v2.2.]
+## TEXTO LITERAL DEL MASTER v2.2
+PASO 1.6 — VEHÍCULO (MÉTODO ÚNICO)
+───────────────────────────────────────────────────────────────────────
+EXPLICACIÓN PARA EL CLIENTE:
+"El vehículo es el nombre de tu método o proceso único — la forma
+específica en que tú entregas el resultado. No es googleable.
+Solo tú lo ofreces de esta manera. Tener un nombre propio para
+tu proceso lo hace memorable y difícil de copiar."
+NOTA CRÍTICA: Llamarlo "Vehículo" en el documento — jamás el nombre
+interno (la palabra "Vehículo" seguida del color azul, escrita junta).
+No usar siglas internas. Siempre nombres completos.
+
+REGLA CLAVE: El nombre del vehículo nace del lenguaje del cliente
+— no se inventa desde afuera. Si el negocio tiene módulos, fases
+o etapas, las fases del vehículo son exactamente esas.
+Características del nombre:
+- Creíble y profesional — no exagerado
+- Puede ser acrónimo, metáfora o concepto
+- Describe lo que hace, no lo que es
+- Nace del lenguaje propio del cliente
+Generar 10 opciones de nombre. El cliente elige una.
+Describir el vehículo en fases con nombre, qué hace y qué produce.
+Elevator pitch: "Ayudo a [NICHO] a [PROMESA] a través del [VEHÍCULO]."
+───────────────────────────────────────────────────────────────────────
 
 ## Objetivo
 Nombrar y estructurar el método propio del cliente: nombre del vehículo, tagline, fases internas del método y elevator pitch.
