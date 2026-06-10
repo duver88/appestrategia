@@ -298,6 +298,9 @@ export async function POST(req: NextRequest) {
         system,
         messages: modelMessages,
         stopWhen: stepCountIs(4),
+        // Adición 1: en fase_6 la conversación solo produce texto corto +
+        // el FOMO/CTAs de la tool — techo de tokens explícito.
+        ...(phaseId === "fase_6" ? { maxOutputTokens: 2000 } : {}),
         tools: buildTools(writer),
         onFinish: async ({ steps, totalUsage }) => {
       const text = steps

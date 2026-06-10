@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ANGULOS_18, FORMATOS_19 } from "@/lib/calendar/catalogs";
+import { ANGULOS_18, FORMATOS_19, allowedFormats } from "@/lib/calendar/catalogs";
 
 // Schemas Zod de cada sección (fuente de verdad del PDF).
 // Se usan en 3 lugares: tool `propose_section` del LLM, validación al guardar
@@ -255,11 +255,19 @@ import { FASE6_SEMANAS } from "@/lib/calendar/catalogs";
 /**
  * Schema de UNA semana del calendario (raíz type:object — lección DeepSeek:
  * las APIs compatibles con OpenAI rechazan raíces no-objeto).
+ * Adición 1: con personaVisible NINGUNA el enum de formato se REDUCE a los
+ * 8 formatos sin cara — el modelo no puede ni siquiera emitir uno con cara.
  */
-export function fase6WeekSchema(weekIndex: number) {
+export function fase6WeekSchema(
+  weekIndex: number,
+  personaVisible: string = "COMPLETA",
+) {
   const [from, to] = FASE6_SEMANAS[weekIndex];
+  const formatos = allowedFormats(personaVisible) as [string, ...string[]];
   return z.object({
-    dias: z.array(fase6DiaSchema).length(to - from + 1),
+    dias: z.array(fase6DiaSchema.extend({ formato: z.enum(formatos) })).length(
+      to - from + 1,
+    ),
   });
 }
 

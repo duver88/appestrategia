@@ -15,6 +15,12 @@ import {
   ETIQUETAS_SEMANA_BASE,
   allowedFormats,
   magnetKeyword,
+  esConCara,
+  PARCIAL_CARA_MAX_SEMANA,
+  PARCIAL_CARA_MAX_MES,
+  MAX_USOS_FORMATO_MES_NINGUNA,
+  ANGULOS_ALTO_IMPACTO,
+  GUIA_ANGULO_FORMATO,
 } from "@/lib/calendar/catalogs";
 import { getSetting, DEFAULT_PRICE_TABLE, type PriceEntry } from "@/lib/settings";
 
@@ -112,6 +118,7 @@ const MIN_FORMATS_BY_WEEKS = [3, 5, 6, 8];
 export interface WeekValidationCtx {
   ctas?: { primario: string; secundario: string };
   magnets?: Array<{ codigo: string; ctaExacto: string }>;
+  personaVisible?: string;
 }
 
 export function validateWeek(
@@ -142,7 +149,10 @@ export function validateWeek(
     }
   }
 
-  // Tope de formatos: ≤2 usos POR SEMANA y ≤3 EN EL MES (semana + resto).
+  // Tope de formatos: ≤2 usos POR SEMANA y tope mensual (semana + resto).
+  // NINGUNA: tope mensual 4 (8 formatos × 3 = 24 < 31 días — infeasible).
+  const maxUsosMes =
+    ctx.personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3;
   const otherFormats = usedCounts(otherDays, "formato");
   const weekFormats = usedCounts(dias, "formato");
   for (const [f, n] of weekFormats) {
@@ -153,9 +163,25 @@ export function validateWeek(
       continue;
     }
     const total = n + (otherFormats.get(f) ?? 0);
-    if (total > 3) {
+    if (total > maxUsosMes) {
       errors.push(
-        `El formato "${f}" quedaría con ${total} usos en el mes (máximo 3): usa otros formatos en esta semana.`,
+        `El formato "${f}" quedaría con ${total} usos en el mes (máximo ${maxUsosMes}): usa otros formatos en esta semana.`,
+      );
+    }
+  }
+
+  // Adición 1 — PARCIAL: formatos CON CARA ≤2 esta semana y ≤8 en el mes.
+  if (ctx.personaVisible === "PARCIAL") {
+    const caraSemana = dias.filter((d) => esConCara(d.formato)).length;
+    const caraOtros = otherDays.filter((d) => esConCara(d.formato)).length;
+    if (caraSemana > PARCIAL_CARA_MAX_SEMANA) {
+      errors.push(
+        `${caraSemana} días CON CARA en esta semana (máximo ${PARCIAL_CARA_MAX_SEMANA} con persona visible PARCIAL): usa formatos sin cara en el resto.`,
+      );
+    }
+    if (caraSemana + caraOtros > PARCIAL_CARA_MAX_MES) {
+      errors.push(
+        `El mes quedaría con ${caraSemana + caraOtros} días CON CARA (máximo ${PARCIAL_CARA_MAX_MES} con persona visible PARCIAL).`,
       );
     }
   }
@@ -227,12 +253,13 @@ export function validateWeek(
   return errors;
 }
 
-/** Cupos restantes por formato del catálogo PERMITIDO (mes 3 − usados; semana máx 2). */
+/** Cupos restantes por formato del catálogo PERMITIDO (mes − usados; semana máx 2). */
 function formatQuota(otherDays: Dia[], personaVisible: string): Map<string, number> {
   const used = usedCounts(otherDays, "formato");
+  const capMes = personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3;
   const quota = new Map<string, number>();
   for (const f of allowedFormats(personaVisible)) {
-    quota.set(f, Math.min(2, 3 - (used.get(norm(f)) ?? 0)));
+    quota.set(f, Math.min(2, capMes - (used.get(norm(f)) ?? 0)));
   }
   return quota;
 }
@@ -347,7 +374,11 @@ function weekPrompt(args: {
     `# CATÁLOGOS CERRADOS (valores EXACTOS, el schema los rechaza si difieren)`,
     `Ángulos (18): Dolor Emocional, Problema, Errores, Enemigos, Dudas, Deseo, Storytelling, Autoridad, Prueba Social, Objeciones, Comparación, Controversia, Técnico, Vinculación, Oportunidad, Demostración, Venta Directa, Viral.`,
     `Formatos permitidos para este proyecto (persona visible: ${personaVisible}) con su cupo de ESTA SEMANA: ${quotaLine}.`,
-    `Regla de cupos: máximo 2 usos por formato POR SEMANA y 3 EN EL MES.`,
+    `Regla de cupos: máximo 2 usos por formato POR SEMANA y ${personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3} EN EL MES.`,
+    personaVisible === "PARCIAL"
+      ? `PERSONA VISIBLE PARCIAL: máximo ${PARCIAL_CARA_MAX_SEMANA} días CON CARA esta semana y ${PARCIAL_CARA_MAX_MES} en el mes. Reserva la cara para los días de mayor impacto (${ANGULOS_ALTO_IMPACTO.join(", ")}) y prefiere formatos sin cara (Broll+VO, Carrusel, iPad/Miro, Pantalla Dividida…) en el resto.`
+      : ``,
+    `Guía orientativa ángulo→formato del master (úsala salvo mejor criterio): ${GUIA_ANGULO_FORMATO}.`,
     extraErrors && extraErrors.length > 0
       ? `DISTRIBUCIÓN FACTIBLE SUGERIDA (puedes mover formatos entre días, pero respeta los totales): ${feasibleFormatPlan(otherDays, to - from + 1, personaVisible)}.`
       : ``,
@@ -467,7 +498,9 @@ export async function generateCalendarInWeeks(
   const defaultGen = async ({ weekIndex, prompt }: { weekIndex: number; prompt: string }) => {
     const result = await generateObject({
       model: opts.model,
-      schema: fase6WeekSchema(weekIndex),
+      // Adición 1: con NINGUNA el enum de formato del schema se reduce a
+      // los 8 sin cara — imposible emitir un formato con cara.
+      schema: fase6WeekSchema(weekIndex, opts.personaVisible ?? "COMPLETA"),
       prompt,
       maxOutputTokens: MAX_OUTPUT_TOKENS_WEEK,
     });
@@ -528,6 +561,7 @@ export async function generateCalendarInWeeks(
       errors = validateWeek(dias, w, otherDays, {
         ctas: opts.ctas,
         magnets: opts.magnets,
+        personaVisible: opts.personaVisible,
       });
       if (errors.length === 0) {
         weeks[w] = dias;

@@ -6,6 +6,10 @@ import {
   FASE6_SEMANAS,
   allowedFormats,
   magnetKeyword,
+  esConCara,
+  PARCIAL_CARA_MAX_SEMANA,
+  PARCIAL_CARA_MAX_MES,
+  MAX_USOS_FORMATO_MES_NINGUNA,
 } from "@/lib/calendar/catalogs";
 
 /**
@@ -47,14 +51,18 @@ export function validateCalendar(
       );
     }
   }
+  // Tope general de usos por formato. Con NINGUNA (solo 8 formatos) el tope
+  // de 3 es infeasible para 31 días (8×3=24): sube a 4 — ver catálogos.
+  const maxUsosMes =
+    ctx.personaVisible === "NINGUNA" ? MAX_USOS_FORMATO_MES_NINGUNA : 3;
   const formatoCount = new Map<string, number>();
   for (const d of dias) {
     const f = norm(d.formato);
     formatoCount.set(f, (formatoCount.get(f) ?? 0) + 1);
   }
   for (const [f, count] of formatoCount) {
-    if (count > 3) {
-      errors.push(`El formato "${f}" aparece ${count} veces; máximo 3.`);
+    if (count > maxUsosMes) {
+      errors.push(`El formato "${f}" aparece ${count} veces; máximo ${maxUsosMes}.`);
     }
   }
   if (!data.fomo.confirmedByClient) {
@@ -82,6 +90,28 @@ export function validateCalendar(
     } else if (!fmtAllowed.has(norm(d.formato))) {
       errors.push(
         `Día ${d.dia}: formato "${d.formato}" requiere mostrar la cara y el proyecto es sin persona visible.`,
+      );
+    }
+  }
+
+  // ——— Adición 1: PARCIAL — formatos CON CARA con tope 2/semana y 8/mes ———
+  if (ctx.personaVisible === "PARCIAL") {
+    let caraMes = 0;
+    for (let w = 0; w < FASE6_SEMANAS.length; w++) {
+      const [from, to] = FASE6_SEMANAS[w];
+      const caraSemana = dias.filter(
+        (d) => d.dia >= from && d.dia <= to && esConCara(d.formato),
+      ).length;
+      caraMes += caraSemana;
+      if (caraSemana > PARCIAL_CARA_MAX_SEMANA) {
+        errors.push(
+          `Semana ${w + 1}: ${caraSemana} días con formato CON CARA (máximo ${PARCIAL_CARA_MAX_SEMANA} por semana con persona visible PARCIAL).`,
+        );
+      }
+    }
+    if (caraMes > PARCIAL_CARA_MAX_MES) {
+      errors.push(
+        `${caraMes} días con formato CON CARA en el mes (máximo ${PARCIAL_CARA_MAX_MES} con persona visible PARCIAL).`,
       );
     }
   }

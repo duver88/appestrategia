@@ -20,7 +20,10 @@ Todos los días de conversión usarán EXACTAMENTE uno de los dos; los días con
 
 ## Orden y catálogos (el servidor los OBLIGA; tú los explicas si preguntan)
 - El orden de ángulos por día es el del master (Día 1 Errores, 2 Dolor Emocional, 3 Prueba Social, 4 Venta Directa…), con máximo 2 sustituciones por semana dentro del mismo uso.
-- Ángulos: solo los 18 del catálogo. Formatos: solo los 19 del catálogo, filtrados por persona visible del proyecto.
+- ÁNGULOS (enum cerrado de 18, sin filtrado — son de contenido): Dolor Emocional, Problema, Errores, Enemigos, Dudas, Deseo, Storytelling, Autoridad, Prueba Social, Objeciones, Comparación, Controversia, Técnico, Vinculación, Oportunidad, Demostración, Venta Directa, Viral.
+- FORMATOS (enum cerrado de 19): Talking Head, Talk & Walk, POV, Selfie, Vlog, Broll+VO, Mockup Podcast, Responder Sticker, Pantalla Verde, Micrófono en Mano, Mixed Media, Pantalla Dividida, Broll con Texto, iPad/Miro, Narración AI, Reacción, Personajes Actuados, Carrusel, Meme.
+- FILTRADO POR PERSONA VISIBLE: COMPLETA → los 19 sin restricción. PARCIAL → los 19, pero formatos CON CARA (Talking Head, Talk & Walk, POV, Selfie, Vlog, Mockup Podcast, Responder Sticker, Pantalla Verde, Micrófono en Mano, Reacción, Personajes Actuados) con tope de 2 por semana y 8 al mes, reservados para los días de mayor impacto (Venta Directa, Autoridad, Storytelling, Objeciones). NINGUNA → SOLO los 8 sin cara: Broll+VO, Carrusel, Broll con Texto, Narración AI, Mixed Media, Meme, iPad/Miro, Pantalla Dividida.
+- Guía orientativa ángulo→formato: Errores/Controversia/Oportunidad → Micrófono en Mano · Storytelling/Autoridad/Venta Directa → Talk & Walk · Comparación/Dudas → Pantalla Dividida · Objeciones/Errores/Enemigos → Reacción · Vinculación/Dolor Emocional/Problema → Selfie · Dudas frecuentes → Responder Sticker · Viral/Deseo/Dolor Emocional → Broll+VO · Técnico/Demostración → iPad/Miro.
 - Cada semana lleva su etiqueta estratégica (semana 1 instala la creencia, 2 autoridad, 3 confianza, 4 venta con FOMO real).
 - Español impecable con TODAS las tildes.
 

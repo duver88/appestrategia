@@ -49,7 +49,22 @@ export const FORMATOS_19 = [
 ] as const;
 export type FormatoCanonico = (typeof FORMATOS_19)[number];
 
-/** Master: "SIN PERSONA VISIBLE: solo formatos sin cara". */
+/** Adición 1 — clasificación canónica CON CARA (11). */
+export const FORMATOS_CON_CARA: FormatoCanonico[] = [
+  "Talking Head",
+  "Talk & Walk",
+  "POV",
+  "Selfie",
+  "Vlog",
+  "Mockup Podcast",
+  "Responder Sticker",
+  "Pantalla Verde",
+  "Micrófono en Mano",
+  "Reacción",
+  "Personajes Actuados",
+];
+
+/** Adición 1 — clasificación canónica SIN CARA (8, incluye Pantalla Dividida). */
 export const FORMATOS_SIN_CARA: FormatoCanonico[] = [
   "Broll+VO",
   "Carrusel",
@@ -58,11 +73,41 @@ export const FORMATOS_SIN_CARA: FormatoCanonico[] = [
   "Mixed Media",
   "Meme",
   "iPad/Miro",
+  "Pantalla Dividida",
 ];
 
 export function allowedFormats(personaVisible: string): FormatoCanonico[] {
   return personaVisible === "NINGUNA" ? FORMATOS_SIN_CARA : [...FORMATOS_19];
 }
+
+export function esConCara(formato: string): boolean {
+  const f = formato.trim().toLowerCase();
+  return FORMATOS_CON_CARA.some((x) => x.toLowerCase() === f);
+}
+
+/** PARCIAL (adición 1): topes mecánicos de formatos CON CARA. */
+export const PARCIAL_CARA_MAX_SEMANA = 2;
+export const PARCIAL_CARA_MAX_MES = 8;
+
+/**
+ * NINGUNA: con solo 8 formatos y el tope general de 3 usos/mes el máximo
+ * alcanzable es 24 < 31 días — infeasible. Resolución mecánica documentada:
+ * el tope por formato sube a 4 SOLO en proyectos sin persona visible
+ * (8 × 4 = 32 ≥ 31). Señalado al dueño en el reporte de la adición 1.
+ */
+export const MAX_USOS_FORMATO_MES_NINGUNA = 4;
+
+/** Días de mayor impacto donde PARCIAL reserva la cara (adición 1). */
+export const ANGULOS_ALTO_IMPACTO: AnguloCanonico[] = [
+  "Venta Directa",
+  "Autoridad",
+  "Storytelling",
+  "Objeciones",
+];
+
+/** Guía ángulo→formato del master (ORIENTATIVA para el prompt, no validación). */
+export const GUIA_ANGULO_FORMATO =
+  "Errores/Controversia/Oportunidad → Micrófono en Mano · Storytelling/Autoridad/Venta Directa → Talk & Walk · Comparación/Dudas → Pantalla Dividida · Objeciones/Errores/Enemigos → Reacción · Vinculación/Dolor Emocional/Problema → Selfie · Dudas frecuentes → Responder Sticker · Viral/Deseo/Dolor Emocional → Broll+VO · Técnico/Demostración → iPad/Miro";
 
 export type Uso = "ATRACCION" | "NUTRICION" | "CONVERSION";
 
