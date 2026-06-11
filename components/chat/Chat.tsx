@@ -22,6 +22,7 @@ import { MessageBubble, TypingIndicator } from "./MessageBubble";
 import { ProposalCard } from "./ProposalCard";
 import { Button } from "@/components/ui/button";
 import { getPhase } from "@/lib/state-machine/phases";
+import { rejectedToolErrors } from "@/lib/chat-tools";
 import { cn } from "@/lib/utils";
 import type { MessageDTO, SectionDTO } from "@/lib/types";
 
@@ -166,7 +167,11 @@ export function Chat({
   const draftSection = sections.find(
     (s) => s.phaseId === currentPhase && s.status === "DRAFT",
   );
-  const visibleMessages = messages.filter((m) => textOf(m).trim().length > 0);
+  // Hotfix edición: un mensaje sin texto pero con una tool RECHAZADA también
+  // es visible — el usuario jamás se queda con la card vieja y silencio.
+  const visibleMessages = messages.filter(
+    (m) => textOf(m).trim().length > 0 || rejectedToolErrors(m).length > 0,
+  );
   const phaseInfo = getPhase(currentPhase);
 
   function submit() {
@@ -249,14 +254,40 @@ export function Chat({
             {visibleMessages.map((m, i) => {
               const prev = visibleMessages[i - 1];
               const sameAsPrev = prev?.role === m.role;
+              const rechazos = m.role === "user" ? [] : rejectedToolErrors(m);
               return (
                 <div key={m.id} className={i === 0 ? "" : sameAsPrev ? "mt-1.5" : "mt-5"}>
-                  <MessageBubble
-                    role={m.role === "user" ? "user" : "assistant"}
-                    text={textOf(m)}
-                    showAvatar={m.role !== "user" && !sameAsPrev}
-                    time={timeOf(m)}
-                  />
+                  {textOf(m).trim().length > 0 && (
+                    <MessageBubble
+                      role={m.role === "user" ? "user" : "assistant"}
+                      text={textOf(m)}
+                      showAvatar={m.role !== "user" && !sameAsPrev}
+                      time={timeOf(m)}
+                    />
+                  )}
+                  {/* Cinturón del hotfix de edición: el rechazo de una tool
+                      SIEMPRE es visible — nunca card vieja en silencio. */}
+                  {rechazos.length > 0 && (
+                    <div
+                      className="mt-2 flex items-start gap-2.5 rounded-2xl border border-line-200 bg-[rgba(245,165,36,0.10)] p-3.5"
+                      role="alert"
+                    >
+                      <AlertTriangle
+                        className="mt-0.5 h-4 w-4 shrink-0 text-warn-500"
+                        strokeWidth={2}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-extrabold text-navy-900">
+                          El cambio no se aplicó
+                        </p>
+                        <ul className="mt-1 space-y-1 text-[12.5px] font-semibold leading-relaxed text-ink-600">
+                          {rechazos.slice(0, 3).map((e, k) => (
+                            <li key={k}>{e}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
