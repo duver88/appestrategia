@@ -15,3 +15,6 @@ next-env.d.ts
 /backups/
 # DB de la suite de auditoría
 tests/audit/.test.db*
+
+tmp-shots/
+.claude/scheduled_tasks.lock
