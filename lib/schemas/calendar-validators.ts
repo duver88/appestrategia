@@ -1,5 +1,11 @@
 import type { Fase6Data } from "./index";
 import {
+  metricErrors,
+  hasUnbracketedNumbers,
+  type MetricContext,
+} from "./metric-validators";
+import { crossValidateMagnets } from "./magnet-validators";
+import {
   ANGULOS_18,
   FORMATOS_19,
   ORDEN_MASTER,
@@ -21,8 +27,18 @@ import {
 export interface CalendarValidationContext {
   /** COMPLETA | PARCIAL | NINGUNA — filtra el catálogo de formatos. */
   personaVisible?: string;
-  /** Magnets de fase_5 para exigir la keyword exacta en sus días. */
-  magnets?: Array<{ codigo: string; ctaExacto: string }>;
+  /**
+   * Magnets de fase_5 para exigir la keyword exacta en sus días.
+   * Ajuste #3 (A2): con diasAplica presente se exige además la igualdad
+   * EXACTA de conjuntos día a día y se detectan keywords huérfanas.
+   */
+  magnets?: Array<{ codigo: string; ctaExacto: string; diasAplica?: number[] }>;
+  /**
+   * Ajuste #3 (A1): cifras confirmadas del bank + lista blanca de
+   * parámetros aprobados. Si está presente, toda métrica de resultado en
+   * hooks/ideas sin respaldo ni brackets es rechazo.
+   */
+  metricas?: MetricContext;
 }
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -67,9 +83,18 @@ export function validateCalendar(
       errors.push(`El formato "${f}" aparece ${count} veces; máximo ${cap}.`);
     }
   }
-  if (!data.fomo.confirmedByClient) {
+  // Ajuste #3 (B2) — gate TERNARIO: confirmado, pendiente con brackets, o
+  // bloqueado. PENDIENTE_BRACKETS solo es válido si la descripción del FOMO
+  // no contiene números concretos fuera de brackets.
+  const fomoPendiente = data.fomo.estado === "PENDIENTE_BRACKETS";
+  if (!data.fomo.confirmedByClient && !fomoPendiente) {
     errors.push(
-      "El FOMO de la semana 4 no está confirmado por el cliente (fomo.confirmedByClient debe ser true antes de aprobar).",
+      "El FOMO de la semana 4 no está confirmado por el cliente (fomo.confirmedByClient debe ser true antes de aprobar, o estado PENDIENTE_BRACKETS con los números en brackets).",
+    );
+  }
+  if (fomoPendiente && hasUnbracketedNumbers(data.fomo.descripcion)) {
+    errors.push(
+      `FOMO en estado PENDIENTE_BRACKETS pero la descripción tiene números concretos fuera de brackets ("${data.fomo.descripcion}"): escríbelos como "[X] cupos", "[X]%", etc.`,
     );
   }
 
@@ -196,6 +221,28 @@ export function validateCalendar(
   // ——— B2.3 / A3.2: etiquetas estratégicas de semana ———
   if (!data.etiquetasSemana || data.etiquetasSemana.length !== 4) {
     errors.push("Faltan las 4 etiquetas estratégicas de semana (etiquetasSemana).");
+  }
+
+  // ——— Ajuste #3 (A2): igualdad exacta de conjuntos magnets↔calendario y
+  // keywords huérfanas (solo cuando fase_5 trae diasAplica) ———
+  if (ctx.magnets?.some((m) => m.diasAplica)) {
+    errors.push(...crossValidateMagnets(dias, ctx.magnets, magnetKeyword));
+  }
+
+  // ——— Ajuste #3 (A1): cifras de resultado respaldadas o en brackets ———
+  if (ctx.metricas) {
+    for (const d of dias) {
+      errors.push(...metricErrors(d.hook, `Día ${d.dia} (hook)`, ctx.metricas));
+      errors.push(
+        ...metricErrors(d.ideaCentral, `Día ${d.dia} (idea central)`, ctx.metricas),
+      );
+    }
+  }
+
+  // ——— Ajuste #3 (B5): si el cierre existe, la cita final no puede estar
+  // vacía (los calendarios viejos sin cierre siguen siendo válidos) ———
+  if (data.cierre && data.cierre.citaFinal.trim().length < 20) {
+    errors.push("El cierre personalizado existe pero la cita final está vacía o es trivial.");
   }
 
   return errors;

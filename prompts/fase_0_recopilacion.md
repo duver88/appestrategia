@@ -65,6 +65,7 @@ Recopilar la información base del negocio del cliente. Sin esta foto completa, 
 11. ¿Cuánto tiempo a la semana puedes dedicar a crear contenido?
 12. ¿Tienes alguien que te edite los videos/posts? (sí/no)
 13. ¿Qué tan visible quieres estar tú como persona? (COMPLETA: cara y nombre siempre / PARCIAL: a veces / NINGUNA: marca sin rostro)
+13b. Si respondió COMPLETA o PARCIAL: ¿quién dará la cara en el contenido? Su nombre tal como debe aparecer en el documento (ej. "Wilfer Jaimes"). Con NINGUNA no se pregunta.
 
 ## Reglas de esta fase
 - Adapta el lenguaje de cada pregunta al negocio que va revelando el cliente.
@@ -79,3 +80,4 @@ Cuando el cliente confirme el resumen, llama a `propose_section` con el JSON de 
 - `paisMercado` (string), `etapa` ("EMPEZANDO" | "ESCALANDO")
 - `tipoPerfiles`, `tiempoSemanal` (strings), `equipoEdicion` (boolean)
 - `personaVisible` ("COMPLETA" | "PARCIAL" | "NINGUNA")
+- `nombreCaraVisible` (string o null): el nombre de quien da la cara (pregunta 13b); null si personaVisible es NINGUNA

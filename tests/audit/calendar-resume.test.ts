@@ -5,7 +5,7 @@ import {
   type GenerateCalendarOptions,
 } from "@/lib/calendar/generate";
 import { FASE6_WEEK_RANGES, fase6Schema } from "@/lib/schemas";
-import { createClientWithUser, createProject, canonicalDay, CTAS_TEST } from "./helpers";
+import { createClientWithUser, createProject, canonicalDay, validCierre, CTAS_TEST } from "./helpers";
 import type { LanguageModel } from "ai";
 
 // FIXTURES ACTUALIZADAS AL CATÁLOGO CANÓNICO (ajuste de calidad A2).
@@ -52,6 +52,7 @@ describe("reanudación del calendario por semanas", () => {
         generatedWeeks.push(weekIndex);
         return { dias: mkDays(weekIndex) };
       },
+      generateCierreFn: async () => validCierre(),
     };
     const res = await generateCalendarInWeeks(opts);
 

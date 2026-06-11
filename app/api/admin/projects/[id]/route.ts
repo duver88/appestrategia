@@ -35,6 +35,7 @@ export async function GET(
     status: project.status,
     currentPhase: project.currentPhase,
     modelProvider: project.modelProvider,
+    caraVisible: project.caraVisible,
     helpRequested: project.helpRequested,
     archivedAt: project.archivedAt?.toISOString() ?? null,
     client: project.client,
@@ -66,6 +67,9 @@ const patchSchema = z.object({
     .optional(),
   archived: z.boolean().optional(),
   helpResolved: z.boolean().optional(), // limpiar el flag de ayuda
+  // Ajuste #3 (A4.1): nombre de la cara visible — editable desde el panel
+  // para proyectos creados antes del campo en fase_0 (null lo limpia).
+  caraVisible: z.string().max(80).nullable().optional(),
 });
 
 export async function PATCH(
@@ -99,11 +103,15 @@ export async function PATCH(
         ? { archivedAt: parsed.data.archived ? new Date() : null }
         : {}),
       ...(parsed.data.helpResolved ? { helpRequested: false } : {}),
+      ...(parsed.data.caraVisible !== undefined
+        ? { caraVisible: parsed.data.caraVisible }
+        : {}),
     },
   });
   return Response.json({
     id: updated.id,
     modelProvider: updated.modelProvider,
+    caraVisible: updated.caraVisible,
     archivedAt: updated.archivedAt?.toISOString() ?? null,
     helpRequested: updated.helpRequested,
   });

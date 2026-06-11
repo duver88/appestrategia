@@ -11,6 +11,7 @@ import {
   createProject,
   canonicalDay,
   validCalendar,
+  validCierre,
   CTAS_TEST,
 } from "./helpers";
 import type { Fase6Data } from "@/lib/schemas";
@@ -35,6 +36,7 @@ describe("calidad del calendario (ajuste A2/A1)", () => {
       ctas: CTAS_TEST,
       personaVisible: "COMPLETA",
       onProgress: () => {},
+      generateCierreFn: async () => validCierre(),
       generateWeekFn: async ({ weekIndex }) => {
         const [from, to] = FASE6_WEEK_RANGES[weekIndex];
         return {
@@ -142,6 +144,7 @@ describe("adición 1 — listas canónicas y filtrado", () => {
       ctas: CTAS_TEST,
       personaVisible: "NINGUNA",
       onProgress: () => {},
+      generateCierreFn: async () => validCierre(),
       generateWeekFn: async ({ weekIndex }) => {
         const [from, to] = FASE6_WEEK_RANGES[weekIndex];
         return {
@@ -183,6 +186,7 @@ describe("adición 1 — listas canónicas y filtrado", () => {
       ctas: CTAS_TEST,
       personaVisible: "PARCIAL",
       onProgress: () => {},
+      generateCierreFn: async () => validCierre(),
       generateWeekFn: async ({ weekIndex }) => {
         const [from, to] = FASE6_WEEK_RANGES[weekIndex];
         let caraUsada = 0;

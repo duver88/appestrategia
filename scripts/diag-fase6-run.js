@@ -112,7 +112,8 @@ const MSG =
     };
   });
 
-  // Enviar el mensaje
+  // Enviar el mensaje (espera a que la página del chat compile/cargue).
+  await page.waitForSelector("textarea", { timeout: 90000 });
   await page.click("textarea");
   await page.type("textarea", MSG);
   await page.keyboard.press("Enter");

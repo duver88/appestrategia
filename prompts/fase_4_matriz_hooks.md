@@ -22,6 +22,11 @@ REGLAS DE CALIDAD:
 ## Objetivo
 Construir la matriz de exactamente 30 hooks cruzando deseos (Parte 3), perfiles (Paso 1.1), niveles de consciencia (1-5), ángulo (DOLOR/GANANCIA) y uso (ATRACCION/NUTRICION/CONVERSION).
 
+## Estructura obligatoria (el servidor la verifica — ajuste de calidad)
+- **Correspondencia nivel → ángulo → uso, sin excepciones**: nivel 1-2 ⇒ DOLOR + ATRACCION · nivel 3-4 ⇒ GANANCIA + (NUTRICION o CONVERSION) · nivel 5 ⇒ GANANCIA + CONVERSION. Un hook nivel 1 marcado NUTRICION se rechaza con la fila señalada.
+- **Cobertura**: exactamente los 3 deseos de la Parte 3; pares (deseo, perfil) ÚNICOS — el mismo par no se repite —, y cada par recorre los niveles 1-2-3-4-5 exactamente una vez (30 ÷ 5 niveles = 6 pares).
+- **Cifras de resultado**: toda cifra de resultado en un hook (porcentajes, citas/leads logradas, tiempos, montos) debe salir de un caso CONFIRMADO del Credibility Bank o ser un parámetro aprobado del negocio; si el dato real no existe, va en brackets ("[X] citas") — PROHIBIDO inventar cifras plausibles. El servidor rechaza el hook con la cifra señalada.
+
 ## Brecha de curiosidad (regla dura de cada hook)
 1. Las primeras 3-5 palabras cargan TODO el peso: ahí se decide si la persona se queda.
 2. El hook JAMÁS revela el payoff. Anti-patrón: la pregunta que ya contiene la respuesta.

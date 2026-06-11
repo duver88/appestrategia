@@ -20,6 +20,17 @@ import {
   type CalendarProgress,
 } from "@/lib/calendar/generate";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
+import { validateMatriz } from "@/lib/schemas/matrix-validators";
+import { validateMagnets } from "@/lib/schemas/magnet-validators";
+import {
+  buildWhitelist,
+  collectStrings,
+  confirmedBankCifras,
+  hasUnbracketedNumbers,
+  metricErrors,
+  type MetricContext,
+} from "@/lib/schemas/metric-validators";
+import type { Fase24Data, Fase4Data, Fase5Data } from "@/lib/schemas";
 import { ACTIVE_PHASES, getPhase } from "@/lib/state-machine/phases";
 import { canAccessClient, getSessionUser } from "@/lib/authz";
 import { requireActiveMembership } from "@/lib/membership";
@@ -137,7 +148,7 @@ export async function POST(req: NextRequest) {
   // pipeline por semanas del servidor (tool generar_calendario).
   const salida =
     phaseId === "fase_6"
-      ? `# INSTRUCCIÓN DE SALIDA (CALENDARIO)\nTu única salida estructurada es la tool \`generar_calendario\`. Antes de llamarla necesitas DOS confirmaciones del cliente: (1) el FOMO real del mes — si dice que no hay, NO aceptes el "no": proponle 3 opciones legítimas según su negocio y guíalo a comprometerse con una verificable; (2) el par de CTAs canónicos de conversión del proyecto (máximo 4 palabras cada uno; con automatización de DMs usa keywords tipo "Comenta YO" / "Escríbeme SISTEMA"; con venta por link, "Ingresa ya" / "Escríbenos"). Llama la tool con { fomo: {descripcion, tipo, confirmedByClient: true}, ctas: {primario, secundario} }. El sistema construye el calendario semana a semana siguiendo el orden del master y el cliente ve el progreso. REGLAS DURAS DE FALLO: (1) PROHIBIDO escribir tú los 31 días, en chat, en resumen o en JSON — el calendario SOLO existe si lo construye el sistema, aunque la tool falle todas las veces; jamás ofrezcas "armarlo aquí mismo" o "pasarlo en un resumen". (2) PROHIBIDA la jerga técnica con el cliente: nunca digas "servidor", "validación", "tool", "parámetros" ni "error interno" — si la tool devuelve ok=false di algo como "estoy afinando el reparto de formatos del mes, dame un momento" y reintenta; si vuelve a fallar, dile que el equipo de LIONSCORE ya fue notificado y que puede usar el botón Ayuda, y NO improvises sustitutos. Con ok=true, avisa que revise la tarjeta de propuesta.`
+      ? `# INSTRUCCIÓN DE SALIDA (CALENDARIO)\nTu única salida estructurada es la tool \`generar_calendario\`. Antes de llamarla necesitas DOS confirmaciones del cliente: (1) el FOMO real del mes — si dice que no hay, NO aceptes el "no": proponle 3 opciones legítimas según su negocio y guíalo a comprometerse con una verificable; si los componentes del FOMO tienen parámetros abiertos (fecha límite, alcance), NO aceptes un "sí" genérico: pide cada número, o ofrécele dejarlos pendientes — en ese caso llama la tool con confirmedByClient: false, estado: "PENDIENTE_BRACKETS" y la descripción con los números en brackets (ej. "[X] cupos, [X]% de descuento"); el documento saldrá con una nota para que el cliente complete los brackets antes de publicar. PROHIBIDO inventar números de FOMO que el cliente no dijo. (2) el par de CTAs canónicos de conversión del proyecto (máximo 4 palabras cada uno; con automatización de DMs usa keywords tipo "Comenta YO" / "Escríbeme SISTEMA"; con venta por link, "Ingresa ya" / "Escríbenos"). Llama la tool con { fomo: {descripcion, tipo, confirmedByClient, estado?}, ctas: {primario, secundario} }. El sistema construye el calendario semana a semana siguiendo el orden del master y el cliente ve el progreso. REGLAS DURAS DE FALLO: (1) PROHIBIDO escribir tú los 31 días, en chat, en resumen o en JSON — el calendario SOLO existe si lo construye el sistema, aunque la tool falle todas las veces; jamás ofrezcas "armarlo aquí mismo" o "pasarlo en un resumen". (2) PROHIBIDA la jerga técnica con el cliente: nunca digas "servidor", "validación", "tool", "parámetros" ni "error interno" — si la tool devuelve ok=false di algo como "estoy afinando el reparto de formatos del mes, dame un momento" y reintenta; si vuelve a fallar, dile que el equipo de LIONSCORE ya fue notificado y que puede usar el botón Ayuda, y NO improvises sustitutos. Con ok=true, avisa que revise la tarjeta de propuesta.`
       : `# INSTRUCCIÓN DE SALIDA\nCuando el cliente apruebe el contenido de esta fase, o cuando tú consideres que está listo para aprobación, llama a la tool \`propose_section\` con el JSON según el schema. Tras llamarla con éxito, avisa al cliente en un mensaje breve que revise la tarjeta de propuesta y use los botones Aprobar o Pedir cambios. Si la tool devuelve errores de validación, corrige el contenido y vuelve a llamarla sin molestar al cliente con detalles técnicos.`;
 
   const system = [
@@ -154,6 +165,7 @@ export async function POST(req: NextRequest) {
   const CALENDAR_CTX_PHASES = [
     "fase_1_0",
     "fase_1_3",
+    "fase_1_4", // ajuste #3 (B5): diferenciadores para la cita final del cierre
     "fase_2_2",
     "fase_2_3",
     "fase_2_4",
@@ -165,14 +177,31 @@ export async function POST(req: NextRequest) {
     approved.filter((s) => CALENDAR_CTX_PHASES.includes(s.phaseId)),
   );
   // Insumos canónicos del pipeline del calendario.
-  const personaVisible =
-    (approved.find((s) => s.phaseId === "fase_0")?.data as
-      | { personaVisible?: string }
-      | undefined)?.personaVisible ?? "COMPLETA";
+  const fase0Data = approved.find((s) => s.phaseId === "fase_0")?.data as
+    | { personaVisible?: string; nombreCaraVisible?: string | null }
+    | undefined;
+  const personaVisible = fase0Data?.personaVisible ?? "COMPLETA";
+  const caraVisibleNombre =
+    fase0Data?.nombreCaraVisible ?? project.caraVisible ?? undefined;
   const calendarMagnets =
-    (approved.find((s) => s.phaseId === "fase_5")?.data as
-      | { magnets?: Array<{ codigo: string; ctaExacto: string }> }
-      | undefined)?.magnets ?? [];
+    (approved.find((s) => s.phaseId === "fase_5")?.data as Fase5Data | undefined)
+      ?.magnets ?? [];
+
+  // Ajuste #3 (A1): cifras confirmadas del bank + lista blanca de
+  // parámetros aprobados (precio, promesa, vehículo, entregables).
+  const WHITELIST_PHASES = ["fase_0", "fase_1_3", "fase_1_6", "fase_1_7"];
+  const bankData = approved.find((s) => s.phaseId === "fase_2_4")?.data as
+    | Fase24Data
+    | undefined;
+  const buildMetricCtx = (extraTexts: string[] = []): MetricContext => ({
+    confirmadas: confirmedBankCifras(bankData),
+    whitelist: buildWhitelist([
+      ...approved
+        .filter((s) => WHITELIST_PHASES.includes(s.phaseId))
+        .flatMap((s) => collectStrings(s.data)),
+      ...extraTexts,
+    ]),
+  });
 
   const sectionSchema = sectionToolSchema(phaseId, eje);
   if (!sectionSchema) {
@@ -189,11 +218,22 @@ export async function POST(req: NextRequest) {
               "Construye el calendario de 31 días por semanas en el servidor. Llamar SOLO cuando el cliente confirmó explícitamente el FOMO real del mes.",
             inputSchema: fase6FomoToolSchema,
             execute: async ({ fomo, ctas }: z.infer<typeof fase6FomoToolSchema>) => {
-              if (!fomo.confirmedByClient) {
+              // Ajuste #3 (B2) — gate TERNARIO: confirmado / pendiente con
+              // brackets / bloqueado.
+              const pendiente = fomo.estado === "PENDIENTE_BRACKETS";
+              if (!fomo.confirmedByClient && !pendiente) {
                 return {
                   ok: false,
                   errors: [
-                    "El cliente aún no confirmó el FOMO real del mes: pregúntaselo antes de generar.",
+                    "El cliente aún no confirmó el FOMO real del mes: pregúntaselo antes de generar. Si no puede confirmar los números HOY, usa la vía de brackets (estado PENDIENTE_BRACKETS con los números como [X]).",
+                  ],
+                };
+              }
+              if (pendiente && hasUnbracketedNumbers(fomo.descripcion)) {
+                return {
+                  ok: false,
+                  errors: [
+                    `El FOMO está en PENDIENTE_BRACKETS pero la descripción trae números concretos ("${fomo.descripcion}"): escríbelos en brackets — "[X] cupos", "[X]% de descuento".`,
                   ],
                 };
               }
@@ -226,6 +266,11 @@ export async function POST(req: NextRequest) {
                   ctas,
                   personaVisible,
                   magnets: calendarMagnets,
+                  caraVisibleNombre,
+                  // FOMO confirmado → sus números son parámetros aprobados.
+                  metricas: buildMetricCtx(
+                    fomo.confirmedByClient ? [fomo.descripcion] : [],
+                  ),
                   prohibido: prohibitedBlock || undefined,
                   onProgress: writeProgress,
                 });
@@ -259,6 +304,29 @@ export async function POST(req: NextRequest) {
           // Validaciones extra de backend (más allá de Zod).
           if (phaseId === "fase_6") {
             const errors = validateCalendar(input as never);
+            if (errors.length > 0) {
+              return { ok: false, errors };
+            }
+          }
+          // Ajuste #3 (A3 + A1): la matriz cumple la fórmula del master y
+          // sus hooks no inventan cifras de resultado.
+          if (phaseId === "fase_4") {
+            const matriz = input as Fase4Data;
+            const metricCtx = buildMetricCtx();
+            const errors = [
+              ...validateMatriz(matriz),
+              ...matriz.hooks.flatMap((h, i) =>
+                metricErrors(h.hook, `Hook ${i + 1} de la matriz`, metricCtx),
+              ),
+            ];
+            if (errors.length > 0) {
+              return { ok: false, errors };
+            }
+          }
+          // Ajuste #3 (A2.3): la distribución de magnets se valida donde
+          // aún se puede corregir — al proponer fase_5.
+          if (phaseId === "fase_5") {
+            const errors = validateMagnets(input as Fase5Data);
             if (errors.length > 0) {
               return { ok: false, errors };
             }

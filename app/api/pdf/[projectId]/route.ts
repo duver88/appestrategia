@@ -66,10 +66,29 @@ export async function GET(
   );
   const brandColor =
     project.brandColor ?? branding.defaultBrandColor ?? DEFAULT_BRAND_COLOR;
+
+  // Ajuste #3 (A4.1) — datos de la ficha técnica de portada:
+  // cara visible: fase_0 (nuevo campo) con fallback al campo del proyecto;
+  // calendario: mes/año de la aprobación de fase_6 (cero datos nuevos).
+  const fase0 = dataByPhase.get("fase_0") as
+    | { nombreCaraVisible?: string | null }
+    | undefined;
+  const caraVisible = fase0?.nombreCaraVisible ?? project.caraVisible ?? null;
+  const fase6Section = project.sections.find((s) => s.phaseId === "fase_6");
+  const MESES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+  const calendarioMes = fase6Section?.approvedAt
+    ? `${MESES[fase6Section.approvedAt.getMonth()]} ${fase6Section.approvedAt.getFullYear()}`
+    : null;
+
   const base = {
     clientName: project.client.name,
     business: project.client.business,
     brandColor,
+    caraVisible,
+    calendarioMes,
   };
 
   const html =
@@ -77,6 +96,9 @@ export async function GET(
       ? renderModo2Html({
           ...base,
           monthTitle: project.title,
+          vehiculoNombre:
+            (dataByPhase.get("fase_1_6") as { nombre?: string } | undefined)
+              ?.nombre ?? null,
           fase_2_1: dataByPhase.get("fase_2_1") as PdfDocumentData["fase_2_1"],
           fase_2_2: dataByPhase.get("fase_2_2") as PdfDocumentData["fase_2_2"],
           fase_5: dataByPhase.get("fase_5") as PdfDocumentData["fase_5"],

@@ -49,6 +49,7 @@ model Project {
   brandColor    String? // hex para portada/cierre del PDF
   modelProvider String    @default("anthropic:claude-sonnet-4-5")
   pdfUrl        String?
+  caraVisible   String? // ajuste #3 (A4.1): nombre de quien da la cara — complemento del campo de fase_0 para proyectos viejos
   helpRequested Boolean   @default(false) // botón "Necesito ayuda humana" del cliente
   archivedAt    DateTime? // archivado desde el panel admin (no se borra)
   createdAt     DateTime  @default(now())

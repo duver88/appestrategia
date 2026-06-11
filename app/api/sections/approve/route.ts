@@ -1,8 +1,15 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { SECTION_SCHEMAS } from "@/lib/schemas";
+import { SECTION_SCHEMAS, type Fase24Data, type Fase4Data, type Fase5Data } from "@/lib/schemas";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
+import { validateMatriz } from "@/lib/schemas/matrix-validators";
+import { validateMagnets } from "@/lib/schemas/magnet-validators";
+import {
+  buildWhitelist,
+  collectStrings,
+  confirmedBankCifras,
+} from "@/lib/schemas/metric-validators";
 import {
   getFollowingPhases,
   getNextPhase,
@@ -72,30 +79,70 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Ajuste #3 (A3): la matriz de 30 hooks jamás se aprueba si viola la
+  // fórmula del master (nivel↔ángulo↔uso, cobertura por pares).
+  if (phaseId === "fase_4") {
+    const matErrors = validateMatriz(valid.data as Fase4Data);
+    if (matErrors.length > 0) {
+      return Response.json(
+        { error: `La matriz no pasa la verificación: ${matErrors.join(" ")}` },
+        { status: 422 },
+      );
+    }
+  }
+
+  // Ajuste #3 (A2.3): la distribución de magnets se valida al aprobar
+  // fase_5 — donde el conflicto todavía se puede corregir.
+  if (phaseId === "fase_5") {
+    const magErrors = validateMagnets(valid.data as Fase5Data);
+    if (magErrors.length > 0) {
+      return Response.json(
+        { error: `Los magnets no pasan la verificación: ${magErrors.join(" ")}` },
+        { status: 422 },
+      );
+    }
+  }
+
   // Gate de FOMO + verificación de la Parte 6: el calendario jamás se aprueba
   // si viola las reglas o si el cliente no confirmó el FOMO real.
   if (phaseId === "fase_6") {
-    // Contexto canónico: personaVisible (fase_0) y magnets (fase_5), con
+    // Contexto canónico: personaVisible (fase_0), magnets con diasAplica
+    // (fase_5), bank confirmado y whitelist de fundamentos (A1), con
     // herencia del proyecto padre en MODO_2.
+    const CTX_PHASES = ["fase_0", "fase_1_3", "fase_1_6", "fase_1_7", "fase_2_4", "fase_5"];
+    const WHITELIST_PHASES = ["fase_0", "fase_1_3", "fase_1_6", "fase_1_7"];
     const ctxSections = await prisma.section.findMany({
       where: {
         projectId:
           project.mode === "MODO_2" && project.parentId
             ? { in: [projectId, project.parentId] }
             : projectId,
-        phaseId: { in: ["fase_0", "fase_5"] },
+        phaseId: { in: CTX_PHASES },
         status: "APPROVED",
       },
     });
-    const fase0 = ctxSections.find((s) => s.phaseId === "fase_0");
-    const fase5 = ctxSections.find((s) => s.phaseId === "fase_5");
+    // En MODO_2 la sección propia pisa a la heredada del padre.
+    const byPhase = new Map<string, unknown>();
+    for (const s of ctxSections.filter((x) => x.projectId !== projectId)) {
+      byPhase.set(s.phaseId, JSON.parse(s.data));
+    }
+    for (const s of ctxSections.filter((x) => x.projectId === projectId)) {
+      byPhase.set(s.phaseId, JSON.parse(s.data));
+    }
+    const calData = valid.data as { fomo: { descripcion: string; confirmedByClient: boolean } };
+    const whitelistTexts = CTX_PHASES.filter((p) => WHITELIST_PHASES.includes(p))
+      .map((p) => byPhase.get(p))
+      .filter(Boolean)
+      .flatMap((d) => collectStrings(d));
+    if (calData.fomo.confirmedByClient) whitelistTexts.push(calData.fomo.descripcion);
     const calErrors = validateCalendar(valid.data as never, {
-      personaVisible: fase0
-        ? (JSON.parse(fase0.data) as { personaVisible?: string }).personaVisible
-        : undefined,
-      magnets: fase5
-        ? (JSON.parse(fase5.data) as { magnets?: Array<{ codigo: string; ctaExacto: string }> }).magnets
-        : undefined,
+      personaVisible: (byPhase.get("fase_0") as { personaVisible?: string } | undefined)
+        ?.personaVisible,
+      magnets: (byPhase.get("fase_5") as Fase5Data | undefined)?.magnets,
+      metricas: {
+        confirmadas: confirmedBankCifras(byPhase.get("fase_2_4") as Fase24Data | undefined),
+        whitelist: buildWhitelist(whitelistTexts),
+      },
     });
     if (calErrors.length > 0) {
       return Response.json(

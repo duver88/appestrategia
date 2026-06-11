@@ -52,7 +52,10 @@ El contexto incluye los hooks e ideas del calendario del mes anterior marcados c
 
 ## Salida
 La misma de la Parte 6: confirma el FOMO real del mes nuevo (con el modo
-construcción si dice que no hay) y el par de CTAs canónicos, y llama a la tool
-`generar_calendario` con { fomo: {descripcion, tipo, confirmedByClient: true},
-ctas: {primario, secundario} }. El servidor construye el calendario semana a
-semana respetando el bloque "PROHIBIDO REPETIR"; no escribas tú los 31 días.
+construcción si dice que no hay; si no puede confirmar los números HOY, vía de
+brackets con confirmedByClient: false y estado: "PENDIENTE_BRACKETS") y el par
+de CTAs canónicos, y llama a la tool `generar_calendario` con
+{ fomo: {descripcion, tipo, confirmedByClient, estado?}, ctas: {primario, secundario} }.
+El servidor construye el calendario semana a semana respetando el bloque
+"PROHIBIDO REPETIR"; no escribas tú los 31 días. Las cifras de resultado siguen
+la regla sagrada: solo casos confirmados del bank, parámetros aprobados, o brackets.

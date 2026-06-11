@@ -16,6 +16,7 @@ const MODEL_OPTIONS = [
 export function ProjectAdminActions({
   projectId,
   modelProvider,
+  caraVisible,
   archived,
   helpRequested,
   approvedPhases,
@@ -23,6 +24,7 @@ export function ProjectAdminActions({
 }: {
   projectId: string;
   modelProvider: string;
+  caraVisible: string | null;
   archived: boolean;
   helpRequested: boolean;
   approvedPhases: Array<{ id: string; title: string }>;
@@ -30,6 +32,7 @@ export function ProjectAdminActions({
 }) {
   const router = useRouter();
   const [model, setModel] = useState(modelProvider);
+  const [cara, setCara] = useState(caraVisible ?? "");
   const [rollbackPhase, setRollbackPhase] = useState("");
   const [confirmRollback, setConfirmRollback] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -102,6 +105,29 @@ export function ProjectAdminActions({
         <a className="btn-ghost" href={`/api/pdf/${projectId}`} aria-disabled={!pdfReady}>
           <FileDown className="h-4 w-4" /> Regenerar PDF
         </a>
+
+        <label className="flex items-center gap-2">
+          <span className="text-[13.5px] font-bold">Cara visible</span>
+          <input
+            className="input w-52"
+            placeholder="Nombre (portada PDF)"
+            value={cara}
+            maxLength={80}
+            onChange={(e) => setCara(e.target.value)}
+          />
+        </label>
+        <button
+          className="btn-ghost"
+          disabled={busy || cara === (caraVisible ?? "")}
+          onClick={() =>
+            patch(
+              { caraVisible: cara.trim() === "" ? null : cara.trim() },
+              "Cara visible actualizada",
+            )
+          }
+        >
+          Guardar
+        </button>
 
         {helpRequested && (
           <button

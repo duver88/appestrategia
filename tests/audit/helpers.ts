@@ -97,8 +97,6 @@ export const FASE05_DATA = {
   narrativaDominante: "Hay que publicar rutinas.",
 } as const;
 
-const USOS = ["ATRACCION", "NUTRICION", "CONVERSION"] as const;
-
 import { ORDEN_MASTER, FORMATOS_19 } from "@/lib/calendar/catalogs";
 
 /** CTAs canónicos de prueba (los del master). */
@@ -124,9 +122,47 @@ export function canonicalDay(dia: number) {
   };
 }
 
+/**
+ * Ajuste #3 (A2): plan canónico de magnets del fixture — días DISJUNTOS,
+ * 2 por magnet (≥ mínimo), 10 días totales (2/10 = 20% ≤ 30%), keywords
+ * distintas, todos en días NO-conversión del orden master.
+ */
+export const MAGNET_PLAN: Array<{ codigo: string; keyword: string; dias: number[] }> = [
+  { codigo: "OM1", keyword: "CLAVE1", dias: [1, 2] },
+  { codigo: "OM2", keyword: "CLAVE2", dias: [3, 5] },
+  { codigo: "OM3", keyword: "CLAVE3", dias: [6, 9] },
+  { codigo: "OM4", keyword: "CLAVE4", dias: [10, 11] },
+  { codigo: "OM5", keyword: "CLAVE5", dias: [12, 13] },
+];
+const MAGNET_BY_DAY = new Map(
+  MAGNET_PLAN.flatMap((m) => m.dias.map((d) => [d, m] as const)),
+);
+
+/** Cierre personalizado válido (ajuste #3 — B5). */
+export function validCierre() {
+  return {
+    queEsElDocumento:
+      "Este documento no es una lista de ideas: es la arquitectura completa de la marca, construida para que la persona correcta la encuentre y decida escribir.",
+    logicaVehiculo:
+      "El Método Auditado organiza todo el contenido del mes: cada pieza instala una de las verdades del sistema, desde el primer hook hasta el cierre.",
+    decisionDelMes:
+      "El calendario de este mes alterna entre los perfiles aprobados porque ambos conviven en el mercado y ambos merecen verse reflejados en el contenido.",
+    rolMagnets:
+      "Los organic magnets cierran el ciclo: cuando alguien comenta la keyword está levantando la mano, y desde ahí el sistema trabaja solo.",
+    citaFinal:
+      "El mercado no necesita otra mentoría de ventas. Necesita una que acompañe todos los días y muestre el proceso real. Eso es el Método Auditado.",
+  };
+}
+
 /** Calendario que cumple TODAS las reglas de la Parte 6 (master v2.2). */
 export function validCalendar() {
-  const dias = Array.from({ length: 31 }, (_, i) => canonicalDay(i + 1));
+  const dias = Array.from({ length: 31 }, (_, i) => {
+    const base = canonicalDay(i + 1);
+    const m = MAGNET_BY_DAY.get(i + 1);
+    return m
+      ? { ...base, magnet: m.codigo, cta: `Comenta «${m.keyword}» y te lo envío` }
+      : base;
+  });
   return {
     fomo: {
       descripcion: "Quedan 5 cupos",
@@ -238,24 +274,33 @@ export function pdfSections(): Record<string, unknown> {
         explicacion: "Explicación",
       })),
     },
+    // Ajuste #3 (A3): matriz canónica conforme a la fórmula del master —
+    // 3 deseos × 2 perfiles = 6 pares únicos, cada uno con los niveles
+    // 1-5 exactos y la correspondencia nivel→ángulo→uso.
     fase_4: {
-      hooks: Array.from({ length: 30 }, (_, i) => ({
-        deseo: "Deseo",
-        perfil: "Perfil",
-        nivel: ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
-        angulo: i % 2 === 0 ? "DOLOR" : "GANANCIA",
-        uso: USOS[i % 3],
-        hook: `Hook ${i + 1}`,
-      })),
+      hooks: Array.from({ length: 30 }, (_, i) => {
+        const par = Math.floor(i / 5); // 0..5
+        const nivel = ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5;
+        return {
+          deseo: `Deseo ${Math.floor(par / 2) + 1}`,
+          perfil: `Perfil ${par + 1}`,
+          nivel,
+          angulo: nivel <= 2 ? "DOLOR" : "GANANCIA",
+          uso: nivel <= 2 ? "ATRACCION" : nivel === 5 ? "CONVERSION" : "NUTRICION",
+          hook: `Hook ${i + 1}`,
+        };
+      }),
     },
+    // Ajuste #3 (A2): magnets con días disjuntos, ≥2 por OM y ≤30% del
+    // total, alineados con los días asignados en validCalendar().
     fase_5: {
-      magnets: Array.from({ length: 5 }, (_, i) => ({
-        codigo: `OM${i + 1}`,
+      magnets: MAGNET_PLAN.map((m, i) => ({
+        codigo: m.codigo,
         titulo: `Magnet ${i + 1}`,
         formato: "PDF",
         porQueLoQuiere: "Porque sí",
-        ctaExacto: "Comenta «GUÍA»",
-        diasAplica: [i + 1],
+        ctaExacto: `Comenta «${m.keyword}»`,
+        diasAplica: m.dias,
       })),
     },
     fase_6: validCalendar(),

@@ -182,3 +182,11 @@ export function magnetKeyword(ctaExacto: string): string | null {
   const m = ctaExacto.match(/[«"']([^«»"']{2,20})[»"']/);
   return m ? m[1].trim() : null;
 }
+
+/**
+ * Ajuste #3 (A2.3) — límites de distribución de magnets en el mes.
+ * Defaults canónicos; el Setting global "magnet_limits" puede sobreescribirlos
+ * (la config por proyecto queda pospuesta hasta que exista UI — documentado).
+ */
+export const MAGNET_MAX_PCT_MES = 0.3; // ningún OM > 30% de los días con magnet
+export const MAGNET_MIN_DIAS = 2; // todo OM definido aparece al menos 2 días

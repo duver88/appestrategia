@@ -6,7 +6,7 @@ import {
 } from "@/lib/calendar/generate";
 import { FASE6_WEEK_RANGES, fase6Schema } from "@/lib/schemas";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
-import { createClientWithUser, createProject, canonicalDay, CTAS_TEST } from "./helpers";
+import { createClientWithUser, createProject, canonicalDay, validCierre, CTAS_TEST } from "./helpers";
 import type { LanguageModel } from "ai";
 
 // FIXTURES ACTUALIZADAS AL CATÁLOGO CANÓNICO (ajuste de calidad A2):
@@ -42,6 +42,9 @@ function makeOpts(
     personaVisible: "COMPLETA",
     onProgress: () => {},
     generateWeekFn: genFn,
+    // Ajuste #3 (B5): el pipeline genera además el cierre — inyectado en
+    // tests para correr sin red (las aserciones existentes no cambian).
+    generateCierreFn: async () => validCierre(),
   };
 }
 

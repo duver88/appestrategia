@@ -20,7 +20,12 @@ const SECTIONS = new Function(`${dataSrc}; return SECTIONS;`)();
 
 // Persona visible configurable: node scripts/diag-fase6-setup.js PARCIAL
 const persona = process.argv[2] || "COMPLETA";
-SECTIONS.fase_0 = { ...SECTIONS.fase_0, personaVisible: persona };
+SECTIONS.fase_0 = {
+  ...SECTIONS.fase_0,
+  personaVisible: persona,
+  // Ajuste #3 (A4): nombre de la cara visible (ficha técnica + persona/día).
+  nombreCaraVisible: persona === "NINGUNA" ? null : "Diana Gómez",
+};
 
 (async () => {
   // Limpieza idempotente

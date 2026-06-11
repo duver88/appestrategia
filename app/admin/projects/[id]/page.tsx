@@ -48,6 +48,7 @@ export default async function AdminProjectDetailPage({
       <ProjectAdminActions
         projectId={project.id}
         modelProvider={project.modelProvider}
+        caraVisible={project.caraVisible}
         archived={project.archivedAt !== null}
         helpRequested={project.helpRequested}
         approvedPhases={approvedPhases.map((p) => ({ id: p.id, title: p.title }))}

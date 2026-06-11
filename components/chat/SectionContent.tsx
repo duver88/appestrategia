@@ -20,6 +20,7 @@ import type {
   Fase5Data,
   Fase6Data,
 } from "@/lib/schemas";
+import { FASE6_SEMANAS } from "@/lib/calendar/catalogs";
 import { cn } from "@/lib/utils";
 
 /** Renderizado bonito del contenido de una sección según su fase. */
@@ -642,10 +643,11 @@ function Fase5View({ data }: { data: Fase5Data }) {
 
 function Fase6View({ data, compact }: { data: Fase6Data; compact: boolean }) {
   const dias = [...data.dias].sort((a, b) => a.dia - b.dia);
-  const semanas: (typeof dias)[] = [];
-  for (let i = 0; i < dias.length; i += 7) {
-    semanas.push(dias.slice(i, i + 7));
-  }
+  // Ajuste #3 (A4.4): troceo por FASE6_SEMANAS (7/7/7/10) — la semana 4
+  // absorbe los días 22-31; nunca existe una "Semana 5".
+  const semanas = FASE6_SEMANAS.map(([from, to]) =>
+    dias.filter((d) => d.dia >= from && d.dia <= to),
+  );
   return (
     <div className="space-y-4">
       <div
@@ -661,7 +663,11 @@ function Fase6View({ data, compact }: { data: Fase6Data; compact: boolean }) {
           )}
         >
           FOMO del mes ({data.fomo.tipo})
-          {data.fomo.confirmedByClient ? " · confirmado" : " · SIN CONFIRMAR"}
+          {data.fomo.confirmedByClient
+            ? " · confirmado"
+            : data.fomo.estado === "PENDIENTE_BRACKETS"
+              ? " · brackets pendientes del cliente"
+              : " · SIN CONFIRMAR"}
         </p>
         <p className="text-sm text-navy-900">{data.fomo.descripcion}</p>
       </div>
@@ -704,6 +710,7 @@ function Fase6View({ data, compact }: { data: Fase6Data; compact: boolean }) {
                 <p className="text-xs text-ink-600">{d.ideaCentral}</p>
                 <p className="mt-1 text-[11px] text-ink-400">
                   {d.angulo} · {d.formato}
+                  {d.persona ? ` — ${d.persona}` : ""}
                   {d.magnet ? ` · Magnet: ${d.magnet}` : ""}
                 </p>
                 <p className="text-[11px] text-ink-400">CTA: {d.cta}</p>

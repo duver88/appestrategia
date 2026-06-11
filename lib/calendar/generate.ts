@@ -4,12 +4,12 @@ import {
   FASE6_WEEK_RANGES,
   fase6WeekSchema,
   fase6Schema,
+  fase6CierreSchema,
   type Fase6Data,
+  type Fase6Cierre,
 } from "@/lib/schemas";
-import {
-  validateCalendar,
-  type CalendarValidationContext,
-} from "@/lib/schemas/calendar-validators";
+import { validateCalendar } from "@/lib/schemas/calendar-validators";
+import { metricErrors, type MetricContext } from "@/lib/schemas/metric-validators";
 import {
   ORDEN_MASTER,
   ETIQUETAS_SEMANA_BASE,
@@ -44,6 +44,15 @@ export interface CalendarFomo {
   descripcion: string;
   tipo: string;
   confirmedByClient: boolean;
+  /** Ajuste #3 (B2): "PENDIENTE_BRACKETS" = aprobable con números en brackets. */
+  estado?: "CONFIRMADO" | "PENDIENTE_BRACKETS";
+}
+
+/** Magnet del pipeline (Ajuste #3 A2: con sus días declarados en fase_5). */
+export interface CalendarMagnet {
+  codigo: string;
+  ctaExacto: string;
+  diasAplica?: number[];
 }
 
 export interface CalendarProgress {
@@ -74,8 +83,12 @@ export interface GenerateCalendarOptions {
   ctas: { primario: string; secundario: string };
   /** COMPLETA | PARCIAL | NINGUNA — filtra el catálogo de formatos. */
   personaVisible?: string;
-  /** Magnets aprobados (fase_5) para keywords exactas. */
-  magnets?: Array<{ codigo: string; ctaExacto: string }>;
+  /** Magnets aprobados (fase_5): keywords exactas y días declarados (A2). */
+  magnets?: CalendarMagnet[];
+  /** Ajuste #3 (A4.3): nombre de quien da la cara, para el campo persona. */
+  caraVisibleNombre?: string;
+  /** Ajuste #3 (A1): cifras confirmadas del bank + whitelist de fundamentos. */
+  metricas?: MetricContext;
   /** MODO_2: hooks/ideas del mes anterior prohibidos. */
   prohibido?: string;
   onProgress: (p: CalendarProgress) => void;
@@ -84,6 +97,8 @@ export interface GenerateCalendarOptions {
     weekIndex: number;
     prompt: string;
   }) => Promise<{ dias: Dia[] }>;
+  /** Inyectable en tests: generación del cierre personalizado (B5). */
+  generateCierreFn?: (args: { prompt: string }) => Promise<Fase6Cierre>;
 }
 
 export type GenerateCalendarResult =
@@ -117,8 +132,10 @@ const MIN_FORMATS_BY_WEEKS = [3, 5, 6, 8];
  */
 export interface WeekValidationCtx {
   ctas?: { primario: string; secundario: string };
-  magnets?: Array<{ codigo: string; ctaExacto: string }>;
+  magnets?: CalendarMagnet[];
   personaVisible?: string;
+  /** Ajuste #3 (A1): cifras del bank/whitelist para validar cada día. */
+  metricas?: MetricContext;
 }
 
 export function validateWeek(
@@ -233,6 +250,37 @@ export function validateWeek(
         );
       }
     }
+    // Ajuste #3 (A2.1): los días de magnet de ESTA semana son exactamente
+    // los declarados en fase_5 (cuando fase_5 trae diasAplica).
+    if (ctx.magnets.some((m) => m.diasAplica)) {
+      const declaradoPorDia = new Map<number, string>();
+      for (const m of ctx.magnets) {
+        for (const dd of m.diasAplica ?? []) declaradoPorDia.set(dd, m.codigo);
+      }
+      for (const d of dias) {
+        const declarado = declaradoPorDia.get(d.dia) ?? null;
+        const recibido = d.magnet ?? null;
+        if (declarado && norm(recibido ?? "") !== norm(declarado)) {
+          errors.push(
+            `Día ${d.dia}: fase_5 declara el magnet ${declarado} ese día (recibido: ${recibido ?? "sin magnet"}). Asigna EXACTAMENTE los magnets del plan.`,
+          );
+        } else if (!declarado && recibido) {
+          errors.push(
+            `Día ${d.dia}: el calendario asigna ${recibido} pero fase_5 no declara magnet ese día — déjalo sin magnet.`,
+          );
+        }
+      }
+    }
+  }
+
+  // Ajuste #3 (A1): cifras de resultado sin respaldo ni brackets = rechazo.
+  if (ctx.metricas) {
+    for (const d of dias) {
+      errors.push(...metricErrors(d.hook, `Día ${d.dia} (hook)`, ctx.metricas));
+      errors.push(
+        ...metricErrors(d.ideaCentral, `Día ${d.dia} (idea central)`, ctx.metricas),
+      );
+    }
   }
 
   // Diversidad acumulada: con k semanas fijadas deben existir los mínimos.
@@ -345,7 +393,9 @@ function weekPrompt(args: {
   fomo: CalendarFomo;
   ctas: { primario: string; secundario: string };
   personaVisible: string;
-  magnets: Array<{ codigo: string; ctaExacto: string }>;
+  magnets: CalendarMagnet[];
+  caraVisibleNombre?: string;
+  metricas?: MetricContext;
   otherDays: Dia[]; // días del RESTO del mes ya fijados (antes y después)
   prohibido?: string;
   extraErrors?: string[];
@@ -357,6 +407,8 @@ function weekPrompt(args: {
     ctas,
     personaVisible,
     magnets,
+    caraVisibleNombre,
+    metricas,
     otherDays,
     prohibido,
     extraErrors,
@@ -368,11 +420,20 @@ function weekPrompt(args: {
   const quotaLine = [...quota.entries()]
     .map(([f, q]) => (q > 0 ? `${f}(${q})` : `${f}(PROHIBIDO)`))
     .join(", ");
+  // Ajuste #3 (A2): plan de magnets día a día desde los diasAplica de fase_5.
+  const magnetPorDia = new Map<number, string>();
+  const hayPlanMagnets = magnets.some((m) => m.diasAplica);
+  for (const m of magnets) {
+    for (const dd of m.diasAplica ?? []) magnetPorDia.set(dd, m.codigo);
+  }
   // Plan del master día a día para esta semana.
   const planLines = Array.from({ length: to - from + 1 }, (_, k) => {
     const dia = from + k;
     const m = ORDEN_MASTER[dia - 1];
-    return `DÍA ${dia} (${weekdayOf(dia)}) — Ángulo: ${m.angulo} — USO: ${m.uso}`;
+    const magnetPlan = hayPlanMagnets
+      ? ` — Magnet: ${magnetPorDia.get(dia) ?? "SIN magnet (null)"}`
+      : "";
+    return `DÍA ${dia} (${weekdayOf(dia)}) — Ángulo: ${m.angulo} — USO: ${m.uso}${magnetPlan}`;
   }).join("\n");
   const magnetLines =
     magnets.length > 0
@@ -437,6 +498,7 @@ function weekPrompt(args: {
         ].join("\n")
       : ``,
     `Guía orientativa ángulo→formato del master (úsala salvo mejor criterio): ${GUIA_ANGULO_FORMATO}.`,
+    `REGLA DE CUPOS SOBRE LA GUÍA: la guía es orientativa, los cupos son ley. Un formato marcado (PROHIBIDO) tiene cupo CERO en esta semana — usarlo es rechazo seguro aunque la guía lo sugiera; elige en su lugar CUALQUIER formato con cupo disponible (ej. Dolor Emocional sin Selfie → Broll+VO o Carrusel).`,
     personaVisible !== "COMPLETA"
       ? `Si la guía sugiere un formato CON CARA y no te queda presupuesto, usa la alternativa sin cara más cercana (Comparación/Dudas → Pantalla Dividida · Viral/Deseo/Dolor → Broll+VO · Técnico/Demostración → iPad/Miro · resto → Carrusel o Broll con Texto).`
       : ``,
@@ -447,6 +509,22 @@ function weekPrompt(args: {
     `# CTAs (el servidor los verifica)`,
     `Días de CONVERSIÓN sin magnet: el campo cta es EXACTAMENTE "${ctas.primario}" o "${ctas.secundario}" — ni una palabra más.`,
     `Días con magnet (campo magnet = código): el cta usa la keyword exacta del magnet. Magnets disponibles: ${magnetLines}.`,
+    hayPlanMagnets
+      ? `LOS DÍAS DE MAGNET SON FIJOS (vienen de los Organic Magnets que el cliente aprobó): asigna el campo magnet EXACTAMENTE como dice el plan del master de arriba — ni un día más, ni un día menos, ni otro código. En los días "SIN magnet" el campo magnet es null y JAMÁS uses la keyword de un magnet en su cta.`
+      : ``,
+    ``,
+    `# PERSONA POR DÍA (campo persona)`,
+    personaVisible === "NINGUNA"
+      ? `Proyecto sin persona visible: en cada día pon persona = "Narración AI" o "Marca" según el formato.`
+      : `En formatos CON CARA pon persona = "${caraVisibleNombre ?? "Cara visible"}"; en formatos sin cara, "Narración AI" o "Marca". Puedes variar (p. ej. testimonial de cliente) solo si el contexto lo justifica.`,
+    ``,
+    `# CIFRAS DE RESULTADO (el servidor las verifica — regla sagrada)`,
+    `Toda cifra de RESULTADO (porcentajes de mejora, citas/leads/ventas logradas, tiempos de resultado, montos) debe salir de un caso CONFIRMADO del Credibility Bank del contexto o ser un parámetro aprobado del negocio (precio, promesa). PROHIBIDO inventar cifras plausibles.`,
+    `Si el dato real no existe, la cifra va en brackets INTEGRADA con naturalidad en la frase — «mis clientes consiguen [X] citas en [X] días» — y la ideaCentral cierra con la nota canónica al cliente, tal cual: «Placeholder hasta documentar con números reales.» Nada más.`,
+    `El hook y la ideaCentral se publican TAL CUAL: jamás escribas en ellos lenguaje de instrucciones o de sistema — nada de "Sin inventar cifras", "según la regla", "brackets", "el servidor", "validación" ni explicaciones de por qué la cifra va en [X].`,
+    metricas && metricas.confirmadas.size === 0
+      ? `OJO: el Credibility Bank de este proyecto NO tiene ninguna métrica confirmada — toda cifra de resultado de casos va en brackets, sin excepción.`
+      : ``,
     ``,
     `# IDIOMA (regla dura)`,
     `Español impecable CON TODAS LAS TILDES y signos (Miércoles, teléfono, cuántos, qué, ¿…?, ¡…!). Revisa hook, ideaCentral y cta de cada día antes de emitir: un texto sin tildes se rechaza.`,
@@ -479,9 +557,78 @@ export function pickCulpritWeek(errors: string[], weeks: Dia[][]): number {
         if (weeks[w]?.some((d) => d.formato.trim().toLowerCase() === f)) return w;
       }
     }
+    // Ajuste #3: errores de magnet/métrica con día explícito ("Día N: …",
+    // "…en los días N, M…") — la semana del primer día citado.
+    const dia = err.match(/[Dd]ía[s]? (\d+)/);
+    if (dia) {
+      const day = parseInt(dia[1], 10);
+      const w = FASE6_WEEK_RANGES.findIndex(([a, b]) => day >= a && day <= b);
+      if (w >= 0) return w;
+    }
   }
   // Falta de diversidad (ángulos/formatos distintos): regenerar la última semana.
   return 3;
+}
+
+const MAX_OUTPUT_TOKENS_CIERRE = 1500;
+
+/**
+ * Ajuste #3 (B5) — cierre personalizado del documento (4 párrafos + cita),
+ * generado al ensamblar el calendario. Espeja la pág. 21 del ideal de
+ * Luxor (docs/referencias/luxor_referencias_doradas.md §4): nada genérico,
+ * la cita nace de los diferenciadores aprobados.
+ */
+function cierrePrompt(opts: GenerateCalendarOptions, cal: Fase6Data): string {
+  const magnets = (opts.magnets ?? [])
+    .map((m) => `${m.codigo} (keyword «${magnetKeyword(m.ctaExacto) ?? m.ctaExacto}»)`)
+    .join(", ");
+  return [
+    `Escribe el CIERRE PERSONALIZADO del documento de estrategia de este cliente. Es la última página: sintetiza la lógica estratégica de ESTE proyecto concreto — un cierre que sirva para cualquier cliente cambiando el nombre es un fracaso.`,
+    ``,
+    `# CONTEXTO DEL NEGOCIO (aprobado por el cliente)`,
+    opts.contexto,
+    ``,
+    `# DATOS DEL MES`,
+    `FOMO de la semana 4: ${cal.fomo.tipo} — ${cal.fomo.descripcion}`,
+    `CTAs de conversión: "${opts.ctas.primario}" / "${opts.ctas.secundario}"`,
+    `Organic magnets del mes: ${magnets || "—"}`,
+    ``,
+    `# LOS 5 CAMPOS (cada uno 2-4 frases, español impecable con tildes)`,
+    `1. queEsElDocumento — qué es este documento y para qué existe, nombrando al cliente/marca y su acción de conversión concreta (estilo: "Todo lo que está aquí existe para una sola cosa: que la persona correcta… y tome la decisión de…").`,
+    `2. logicaVehiculo — el método propio (vehículo) como lógica que organiza el contenido: qué verdades instala cada pieza (usa los pilares/tesis del proyecto).`,
+    `3. decisionDelMes — la decisión editorial particular de ESTE mes: a qué perfiles alterna el calendario, por qué, y cómo convive el lenguaje con el precio/entrada del negocio. Lo más personalizado de todo.`,
+    `4. rolMagnets — el rol de los organic magnets: comentar la keyword = levantar la mano; desde ahí el sistema trabaja.`,
+    `5. citaFinal — UNA cita posicionadora en la voz de la marca, lista para caja destacada, construida con el patrón: "El mercado no necesita otro/a [categoría genérica]. Necesita uno/a que [diferenciadores REALES aprobados del proyecto]. Eso es [marca/método]." Usa los diferenciadores del contexto, jamás inventes credenciales.`,
+    ``,
+    `# REGLAS DURAS`,
+    `- Cifras: SOLO las del contexto aprobado; ninguna cifra nueva. Si citas una pendiente, en brackets ("[X]%").`,
+    `- Sin jerga interna (nada de "fase_x", "schema", "tool").`,
+    `- La voz del documento (voseo/tuteo/ustedeo) es la del tono aprobado del proyecto: no la mezcles.`,
+  ].join("\n");
+}
+
+async function generateCierre(
+  opts: GenerateCalendarOptions,
+  cal: Fase6Data,
+): Promise<Fase6Cierre> {
+  const prompt = cierrePrompt(opts, cal);
+  if (opts.generateCierreFn) return opts.generateCierreFn({ prompt });
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await generateObject({
+        model: opts.model,
+        schema: fase6CierreSchema,
+        prompt,
+        maxOutputTokens: MAX_OUTPUT_TOKENS_CIERRE,
+      });
+      await logWeekUsage(opts, result.usage);
+      return result.object;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr;
 }
 
 async function logWeekUsage(
@@ -605,6 +752,8 @@ export async function generateCalendarInWeeks(
               ctas: opts.ctas,
               personaVisible: opts.personaVisible ?? "COMPLETA",
               magnets: opts.magnets ?? [],
+              caraVisibleNombre: opts.caraVisibleNombre,
+              metricas: opts.metricas,
               otherDays,
               prohibido: opts.prohibido,
               extraErrors: errors,
@@ -623,6 +772,7 @@ export async function generateCalendarInWeeks(
         ctas: opts.ctas,
         magnets: opts.magnets,
         personaVisible: opts.personaVisible,
+        metricas: opts.metricas,
       });
       if (errors.length === 0) {
         weeks[w] = dias;
@@ -647,6 +797,7 @@ export async function generateCalendarInWeeks(
   for (;;) {
     onProgress({ semana: 4, de: 4, estado: "ensamblando" });
     const dias = weeks.flatMap((x) => x!);
+    const fomoPendiente = fomo.estado === "PENDIENTE_BRACKETS";
     const assembled: Fase6Data = {
       fomo,
       dias,
@@ -657,20 +808,44 @@ export async function generateCalendarInWeeks(
         pruebaSocialConCasos: true,
       },
       // Etiquetas estratégicas (lógica semanal del master); la semana 4
-      // muestra el FOMO en positivo — nunca "sin FOMO".
+      // muestra el FOMO en positivo — nunca "sin FOMO". Con brackets
+      // pendientes, la nota al cliente va en la etiqueta (estilo Luxor:
+      // "★ = completa los brackets antes de publicar").
       etiquetasSemana: [
         ETIQUETAS_SEMANA_BASE[0],
         ETIQUETAS_SEMANA_BASE[1],
         ETIQUETAS_SEMANA_BASE[2],
-        `${ETIQUETAS_SEMANA_BASE[3]} — FOMO: ${fomo.descripcion}`,
+        fomoPendiente
+          ? `${ETIQUETAS_SEMANA_BASE[3]} — FOMO: ${fomo.descripcion} (★ completa los brackets antes de publicar)`
+          : `${ETIQUETAS_SEMANA_BASE[3]} — FOMO: ${fomo.descripcion}`,
       ],
       ctas: opts.ctas,
     };
     const globalErrors = validateCalendar(assembled, {
       personaVisible: opts.personaVisible,
       magnets: opts.magnets,
+      metricas: opts.metricas,
     });
     if (globalErrors.length === 0) {
+      // Ajuste #3 (B5): cierre personalizado — 5ª llamada del pipeline.
+      try {
+        assembled.cierre = await generateCierre(opts, assembled);
+      } catch (err) {
+        console.error("Generación del cierre falló:", err);
+        onProgress({
+          semana: 4,
+          de: 4,
+          estado: "error",
+          detalle: "El cierre personalizado no pudo generarse",
+        });
+        return {
+          ok: false,
+          errors: [
+            "El cierre personalizado del documento no pudo generarse. El avance quedó guardado: reintenta y continuará desde el ensamblado.",
+          ],
+          intentosPorSemana,
+        };
+      }
       const parsed = fase6Schema.parse(assembled); // defensa en profundidad
       await prisma.section.upsert({
         where: { projectId_phaseId: { projectId, phaseId: "fase_6" } },

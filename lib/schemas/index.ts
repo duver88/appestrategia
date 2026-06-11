@@ -19,6 +19,10 @@ export const fase0Schema = z.object({
   tiempoSemanal: z.string(),
   equipoEdicion: z.boolean(),
   personaVisible: z.enum(["COMPLETA", "PARCIAL", "NINGUNA"]),
+  // Ajuste #3 (A4.1/A4.3) — ADITIVO: nombre de quien da la cara ("Wilfer
+  // Jaimes"). Opcional para tolerar fase_0 aprobadas antes del ajuste;
+  // el prompt lo pregunta cuando personaVisible ≠ NINGUNA.
+  nombreCaraVisible: z.string().nullable().optional(),
 });
 
 export const fase05Schema = z.object({
@@ -246,6 +250,10 @@ export const fase6DiaSchema = z.object({
   ideaCentral: z.string(),
   magnet: z.string().nullable(),
   cta: z.string(),
+  // Ajuste #3 (A4.3) — ADITIVO: quién da la cara ese día ("Talk & Walk —
+  // Wilfer"). Default del generador: la cara visible del proyecto en
+  // formatos CON CARA; "Narración AI"/"Marca" en los sin cara.
+  persona: z.string().nullable().optional(),
 });
 
 /** Días que cubre cada semana de generación (fuente: catálogos canónicos). */
@@ -280,6 +288,17 @@ const ctaCorto = z
   });
 
 /**
+ * Ajuste #3 (B2) — gate TERNARIO del FOMO, codificado de forma ADITIVA:
+ * - confirmedByClient=true → números concretos permitidos (como siempre).
+ * - confirmedByClient=false + estado="PENDIENTE_BRACKETS" → generable y
+ *   aprobable SOLO si los números del FOMO van en brackets ("[X] cupos")
+ *   con nota al cliente (el validador A1 lo verifica).
+ * - confirmedByClient=false sin estado → bloqueado (comportamiento previo;
+ *   calendarios viejos intactos).
+ */
+const fomoEstado = z.enum(["CONFIRMADO", "PENDIENTE_BRACKETS"]).optional();
+
+/**
  * Input de la tool `generar_calendario`: el FOMO confirmado + el par de
  * CTAs canónicos de conversión acordados con el cliente.
  */
@@ -288,6 +307,7 @@ export const fase6FomoToolSchema = z.object({
     descripcion: z.string(),
     tipo: z.string(),
     confirmedByClient: z.boolean(),
+    estado: fomoEstado,
   }),
   ctas: z.object({
     primario: ctaCorto,
@@ -295,11 +315,25 @@ export const fase6FomoToolSchema = z.object({
   }),
 });
 
+/**
+ * Ajuste #3 (B5) — cierre personalizado del documento como sub-entregable
+ * de fase_6 (decisión 8 del owner: opción i). Espeja los 4 párrafos + cita
+ * del ideal de Luxor (docs/referencias/luxor_referencias_doradas.md §4).
+ */
+export const fase6CierreSchema = z.object({
+  queEsElDocumento: z.string().min(40),
+  logicaVehiculo: z.string().min(40),
+  decisionDelMes: z.string().min(40),
+  rolMagnets: z.string().min(40),
+  citaFinal: z.string().min(20),
+});
+
 export const fase6Schema = z.object({
   fomo: z.object({
     descripcion: z.string(),
     tipo: z.string(),
     confirmedByClient: z.boolean(),
+    estado: fomoEstado,
   }),
   dias: z.array(fase6DiaSchema).length(31),
   verificacion: z.object({
@@ -313,7 +347,13 @@ export const fase6Schema = z.object({
   // toda generación/aprobación nueva.
   etiquetasSemana: z.array(z.string()).length(4).optional(),
   ctas: z.object({ primario: z.string(), secundario: z.string() }).optional(),
+  // Ajuste #3 (B5) — cierre personalizado. Opcional: calendarios viejos no
+  // lo traen (la plantilla cae al cierre estático); el pipeline lo genera
+  // SIEMPRE en calendarios nuevos.
+  cierre: fase6CierreSchema.optional(),
 });
+
+export type Fase6Cierre = z.infer<typeof fase6CierreSchema>;
 
 /**
  * Schema para la tool `propose_section`: SIEMPRE un objeto en la raíz.

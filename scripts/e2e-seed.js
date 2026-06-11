@@ -158,6 +158,13 @@ const SECTIONS = {
     versionAgresiva: "Las rutinas gratis son la razón por la que sigues pobre.",
     versionConsultiva: "Publicar rutinas atrae gente que quiere rutinas, no entrenador.",
     tesisUnificada: "El contenido que regala tu trabajo atrae a quien no quiere pagarlo.",
+    // Campos del ajuste de calidad #2 (obligatorios en propuestas nuevas).
+    reglaEjecucion:
+      "Esta tesis se repite en cada pieza desde ángulos distintos: instalación de asociación por repetición, no variedad.",
+    senalesDeExito: [
+      "vi tu video y me di cuenta de que llevo años regalando mi trabajo",
+      "nunca nadie me lo había explicado así",
+    ],
   },
   fase_2_2: {
     principal: "Ayudo a entrenadores a vivir de 10 clientes online sin regalar su trabajo.",
@@ -184,15 +191,23 @@ const SECTIONS = {
       { nombre: "Tranquilidad", nombreReiss: "Tranquilidad", explicacion: "Ingresos previsibles cada mes." },
     ],
   },
+  // Ajuste #3 (A3): matriz conforme a la fórmula del master — 3 deseos ×
+  // 2 perfiles = 6 pares únicos, cada uno con los niveles 1-5 exactos y la
+  // correspondencia nivel→ángulo→uso.
   fase_4: {
-    hooks: Array.from({ length: 30 }, (_, i) => ({
-      deseo: ["Independencia", "Estatus", "Tranquilidad"][i % 3],
-      perfil: ["El saturado", "La recién certificada", "El influencer", "La que volvió", "El escéptico"][i % 5],
-      nivel: (i % 5) + 1,
-      angulo: i % 2 === 0 ? "DOLOR" : "GANANCIA",
-      uso: USOS[i % 3],
-      hook: `Hook de la matriz número ${i + 1}`,
-    })),
+    hooks: Array.from({ length: 30 }, (_, i) => {
+      const par = Math.floor(i / 5); // 0..5
+      const nivel = (i % 5) + 1;
+      const perfiles = ["El saturado", "La recién certificada", "El influencer", "La que volvió", "El escéptico", "El metódico"];
+      return {
+        deseo: ["Independencia", "Estatus", "Tranquilidad"][Math.floor(par / 2)],
+        perfil: perfiles[par],
+        nivel,
+        angulo: nivel <= 2 ? "DOLOR" : "GANANCIA",
+        uso: nivel <= 2 ? "ATRACCION" : nivel === 5 ? "CONVERSION" : "NUTRICION",
+        hook: `Hook de la matriz número ${i + 1}`,
+      };
+    }),
   },
   fase_5: {
     magnets: Array.from({ length: 5 }, (_, i) => ({

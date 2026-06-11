@@ -24,6 +24,11 @@ export interface PdfDocumentData {
   clientName: string;
   business: string;
   brandColor: string; // hex para portada y cierre
+  // Ajuste #3 (A4.1) — ficha técnica de portada (opcionales: los proyectos
+  // viejos caen a "—").
+  caraVisible?: string | null;
+  calendarioMes?: string | null;
+  modoLabel?: string | null;
   fase_1_1: Fase11Data;
   fase_1_2: Fase12Data;
   fase_1_3: Fase13Data;

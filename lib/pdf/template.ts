@@ -3,7 +3,9 @@ import type {
   Fase22Data,
   Fase5Data,
   Fase6Data,
+  Fase6Cierre,
 } from "@/lib/schemas";
+import { FASE6_SEMANAS } from "@/lib/calendar/catalogs";
 import type { PdfDocumentData } from "./types";
 
 /**
@@ -25,6 +27,17 @@ const USO_COLOR: Record<string, string> = {
   ATRACCION: "#2E7D52",
   NUTRICION: "#6B4FA0",
   CONVERSION: "#C0392B",
+};
+
+/** Ajuste #3 (A4.1): versión de la metodología para la ficha técnica. */
+export const METODOLOGIA_LABEL = "Lionscore AI v2.2";
+
+/** Etiqueta del eje para la ficha técnica de portada. */
+const EJE_LABEL: Record<string, string> = {
+  CREENCIA_CONTRARIA: "Creencia Contraria",
+  PROCESO: "Proceso",
+  RESULTADO: "Resultado",
+  COMBINACION: "Combinación",
 };
 
 const USO_LABEL: Record<string, string> = {
@@ -127,11 +140,32 @@ function baseCss(brandColor: string): string {
   .week-head.fomo { color: ${brandColor}; }
   .closing-text { font-size: 11.5pt; line-height: 1.8; opacity: .95; }
   .closing-text p { margin-bottom: 16px; }
+  .ficha { margin-bottom: 46px; }
+  .ficha td {
+    border-bottom: 1px solid rgba(255,255,255,.18); padding: 6px 0;
+    color: #ffffff; font-size: 9.5pt;
+  }
+  .ficha td.k {
+    text-transform: uppercase; letter-spacing: 2px; font-size: 7.5pt;
+    opacity: .7; width: 150px; font-weight: 600;
+  }
+  .legend { margin-top: 10px; font-size: 8.5pt; color: #7A7165; }
+  .legend .dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin: 0 4px 0 10px; vertical-align: middle;
+  }
+  .closing-quote {
+    font-family: Georgia, serif; font-style: italic; font-size: 14pt;
+    line-height: 1.5; border: 1px solid rgba(255,255,255,.45);
+    padding: 22px 26px; margin-top: 28px;
+  }
   `;
 }
 
+// Ajuste #3 (A4.2): título canónico del ideal de Luxor. El texto sigue el
+// patrón qué-es + cómo-se-usa + regla de oro (docs/referencias §2).
 function explainBox(text: string): string {
-  return `<div class="explain"><strong>Cómo usar esta sección.</strong> ${text}</div>`;
+  return `<div class="explain"><strong>¿Para qué sirve esta sección?</strong> ${text}</div>`;
 }
 
 function ejeBlock(d: Fase21Data, brand: Fase22Data): string {
@@ -174,7 +208,7 @@ function ejeBlock(d: Fase21Data, brand: Fase22Data): string {
     <section class="doc">
       <p class="part-label">Posicionamiento</p>
       <h2>Eje de posicionamiento y Brand Statement</h2>
-      ${explainBox("Este es el ángulo desde el que se comunica toda la marca. Cada pieza de contenido del calendario nace de esta posición: léela antes de grabar o escribir cualquier cosa.")}
+      ${explainBox("Es la columna vertebral de toda la estrategia: la tesis que la marca repite en CADA pieza de contenido desde ángulos distintos — no cambia semana a semana, se instala por repetición. Léela antes de grabar o escribir cualquier cosa.")}
       ${body}
       <h3>Brand Statement</h3>
       <div class="quote">${esc(brand.principal)}</div>
@@ -273,8 +307,10 @@ function parte1Block(d: PdfDocumentData): string {
 
     <section class="doc">
       <p class="part-label">Parte 1 · Fundamentos</p>
-      <h2>El Vehículo: ${esc(veh.nombre)}</h2>
-      ${explainBox("El método propio con nombre. Es lo que convierte un servicio genérico en un sistema único: nómbralo así, siempre igual, en todo el contenido.")}
+      <!-- Ajuste #3 (A4.1): el título es el nombre propio del método; la
+           palabra "Vehículo" solo vive en la ficha técnica de portada. -->
+      <h2>${esc(veh.nombre)}</h2>
+      ${explainBox("El método propio con nombre. Es lo que convierte un servicio genérico en un sistema único y difícil de copiar: nómbralo así, siempre igual, en todo el contenido y en las llamadas de venta.")}
       <div class="quote">${esc(veh.tagline)}</div>
       ${veh.fases
         .map(
@@ -320,7 +356,7 @@ function credibilidadBlock(d: PdfDocumentData): string {
     <section class="doc">
       <p class="part-label">Posicionamiento</p>
       <h2>Banco de Credibilidad</h2>
-      ${explainBox("Casos reales con métrica, resultado y tiempo. Son la prueba social del sistema: cada contenido de conversión del calendario cita uno de estos casos, nunca uno inventado.")}
+      ${explainBox("Casos reales con métrica, resultado y tiempo. Son la prueba social del sistema: cada contenido de conversión del calendario cita uno de estos casos, nunca uno inventado. Lo que está en brackets es un placeholder hasta documentar el número real.")}
       ${d.fase_2_4.casos
         .map(
           (c) => `
@@ -331,7 +367,33 @@ function credibilidadBlock(d: PdfDocumentData): string {
         </div>`,
         )
         .join("")}
+      ${notaPlaceholders(d.clientName, d.fase_2_4)}
     </section>`;
+}
+
+/**
+ * Ajuste #3 (B3) — bloque "Nota para [cliente]" del Credibility Bank,
+ * derivado DETERMINISTA de los casos pendientes (esPlaceholder o brackets
+ * en la métrica). Redacción del ideal de Luxor pág. 15. Funciona
+ * retroactivamente con banks ya aprobados; si no hay pendientes, no sale.
+ */
+function notaPlaceholders(
+  clientName: string,
+  bank: PdfDocumentData["fase_2_4"],
+): string {
+  const pendientes = bank.casos.filter(
+    (c) =>
+      c.esPlaceholder ||
+      [c.metrica, c.resultado, c.tiempo].some((x) => /\[[^\]]*\]/.test(x)),
+  );
+  if (pendientes.length === 0) return "";
+  return `
+      <div class="card" style="border-left: 3px solid #C0392B;">
+        <p class="title">Nota para ${esc(clientName)}</p>
+        <p>${pendientes.length === bank.casos.length ? "Estos casos tienen" : `${pendientes.length === 1 ? "Este caso tiene" : `Estos ${pendientes.length} casos tienen`}`} la estructura lista — solo necesitas meter los números reales: ${pendientes
+          .map((c) => esc(c.tema))
+          .join("; ")}. Un caso con datos concretos vale más que diez genéricos.</p>
+      </div>`;
 }
 
 function deseosBlock(d: PdfDocumentData): string {
@@ -357,7 +419,7 @@ function hooksBlock(d: PdfDocumentData): string {
     <section class="doc">
       <p class="part-label">Parte 4 · Contenido</p>
       <h2>Matriz de 30 hooks</h2>
-      ${explainBox("Treinta aperturas listas para usar, clasificadas por deseo, perfil, nivel de consciencia, ángulo y uso. El calendario las distribuye a lo largo del mes; esta matriz es tu reserva.")}
+      ${explainBox("El banco de ideas para todo el contenido del mes: 30 aperturas clasificadas por deseo, perfil, nivel de consciencia, ángulo y uso. Niveles 1-2 = atracción fría; niveles 3-4-5 = nutrición y conversión. Antes de grabar, elige un hook de aquí — no improvises el gancho.")}
       <table>
         <thead>
           <tr><th>#</th><th>Hook</th><th>Deseo</th><th>Perfil</th><th>Nivel</th><th>Ángulo</th><th>Uso</th></tr>
@@ -402,15 +464,18 @@ function magnetsBlock(magnets: Fase5Data): string {
     </section>`;
 }
 
-function calendarBlock(cal: Fase6Data): string {
+function calendarBlock(cal: Fase6Data, marca?: string): string {
   const dias = [...cal.dias].sort((a, b) => a.dia - b.dia);
-  const semanas: (typeof dias)[] = [];
-  for (let i = 0; i < dias.length; i += 7) semanas.push(dias.slice(i, i + 7));
+  // Ajuste #3 (A4.4): troceo por FASE6_SEMANAS (7/7/7/10) — la semana 4
+  // absorbe los días 22-31. PROHIBIDO un encabezado "Semana 5".
+  const semanas = FASE6_SEMANAS.map(([from, to]) =>
+    dias.filter((d) => d.dia >= from && d.dia <= to),
+  );
   return `
     <section class="doc">
       <p class="part-label">Parte 6 · Ejecución</p>
       <h2>Calendario de 31 días</h2>
-      ${explainBox("El mes completo, día por día. El color indica el uso de cada pieza: verde atrae audiencia nueva, morado nutre la relación, rojo convierte en ventas. La semana 4 concentra la urgencia real del mes.")}
+      ${explainBox(`Este calendario le dice ${marca ? `al equipo de ${esc(marca)}` : "al equipo"} exactamente qué publicar cada día del mes. Verde = atracción. Morado = nutrición. Rojo = conversión. ★ = Semana 4 — la urgencia real del mes${cal.fomo.estado === "PENDIENTE_BRACKETS" ? "; el cliente completa los brackets del FOMO antes de publicar" : ""}. Antes de grabar, lee el hook del día en voz alta con tus propias palabras.`)}
       ${semanas
         .map((semana, si) => {
           const isFomo = si === 3;
@@ -425,19 +490,19 @@ function calendarBlock(cal: Fase6Data): string {
           <p class="week-head${isFomo ? " fomo" : ""}">Semana ${si + 1}${etiqueta ? ` — ${esc(etiqueta)}` : ""}</p>
           <table>
             <thead>
-              <tr><th>Día</th><th>Uso</th><th>Ángulo</th><th>Hook</th><th>Idea central</th><th>Formato</th><th>Magnet</th><th>CTA</th></tr>
+              <tr><th>Día</th><th>Uso</th><th>Ángulo</th><th>Hook</th><th>Idea central</th><th>Formato / Persona</th><th>Magnet</th><th>CTA</th></tr>
             </thead>
             <tbody>
               ${semana
                 .map(
                   (x) => `
                 <tr>
-                  <td><strong>${x.dia}</strong><br/><span class="muted">${esc(x.diaSemana)}</span></td>
+                  <td><strong>${x.dia}${isFomo ? " ★" : ""}</strong><br/><span class="muted">${esc(x.diaSemana)}</span></td>
                   <td><span class="pill" style="background:${USO_COLOR[x.uso]}">${USO_LABEL[x.uso]}</span></td>
                   <td>${esc(x.angulo)}</td>
                   <td><strong>«${esc(x.hook)}»</strong></td>
                   <td>${esc(x.ideaCentral)}</td>
-                  <td>${esc(x.formato)}</td>
+                  <td>${esc(x.formato)}${x.persona ? ` — ${esc(x.persona)}` : ""}</td>
                   <td>${x.magnet ? esc(x.magnet) : "—"}</td>
                   <td>${esc(x.cta)}</td>
                 </tr>`,
@@ -448,27 +513,76 @@ function calendarBlock(cal: Fase6Data): string {
         </div>`;
         })
         .join("")}
+      <p class="legend"><strong>Leyenda:</strong><span class="dot" style="background:${USO_COLOR.ATRACCION}"></span>Atracción (audiencia nueva)<span class="dot" style="background:${USO_COLOR.NUTRICION}"></span>Nutrición (confianza)<span class="dot" style="background:${USO_COLOR.CONVERSION}"></span>Conversión (venta) · ★ = Semana 4 — FOMO del mes</p>
     </section>`;
+}
+
+interface FichaTecnica {
+  cliente: string;
+  eje?: string | null;
+  vehiculo?: string | null;
+  caraVisible?: string | null;
+  calendario?: string | null;
+  modo?: string | null;
 }
 
 function coverPage(
   clientName: string,
   subtitle: string,
   tocItems: string[],
+  ficha?: FichaTecnica,
 ): string {
+  // Ajuste #3 (A4.1): ficha técnica de portada (estructura del ideal de
+  // Luxor §1). "VEHÍCULO" como rótulo se permite SOLO aquí.
+  const filas: Array<[string, string]> = ficha
+    ? [
+        ["CLIENTE", ficha.cliente],
+        ["METODOLOGÍA", METODOLOGIA_LABEL],
+        ["EJE", ficha.eje ?? "—"],
+        ["VEHÍCULO", ficha.vehiculo ?? "—"],
+        ["CARA VISIBLE", ficha.caraVisible ?? "—"],
+        ["CALENDARIO", ficha.calendario ?? "—"],
+        ["MODO", ficha.modo ?? "—"],
+      ]
+    : [];
   return `
   <div class="plate">
-    <p class="kicker">LIONSCORE AI</p>
+    <p class="kicker">SISTEMA LIONSCORE</p>
     <h1>Sistema de Marca Personal,<br/>Contenido y Ventas</h1>
     <p class="client">${esc(clientName)} · ${esc(subtitle)}</p>
+    ${
+      filas.length > 0
+        ? `<table class="ficha"><tbody>${filas
+            .map(([k, v]) => `<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`)
+            .join("")}</tbody></table>`
+        : ""
+    }
     <div class="toc">
       <p>Contenido del documento</p>
       <ol>${tocItems.map((t) => `<li>${esc(t)}</li>`).join("")}</ol>
     </div>
+    <p style="margin-top:34px;font-size:8pt;letter-spacing:2px;text-transform:uppercase;opacity:.6">${esc(METODOLOGIA_LABEL)} · Lions Core Solutions · Confidencial</p>
   </div>`;
 }
 
-function closingPage(clientName: string): string {
+function closingPage(clientName: string, cierre?: Fase6Cierre): string {
+  // Ajuste #3 (A4.5/B5): cierre personalizado generado con el calendario
+  // (4 párrafos + cita destacada, estilo Luxor pág. 21). Los documentos
+  // anteriores al ajuste caen al cierre estático de siempre.
+  if (cierre) {
+    return `
+  <div class="plate" style="page-break-after: auto; page-break-before: always;">
+    <p class="kicker">Cierre</p>
+    <h1>Este documento es la base<br/>de tu estrategia digital</h1>
+    <div class="closing-text" style="margin-top: 40px;">
+      <p>${esc(cierre.queEsElDocumento)}</p>
+      <p>${esc(cierre.logicaVehiculo)}</p>
+      <p>${esc(cierre.decisionDelMes)}</p>
+      <p>${esc(cierre.rolMagnets)}</p>
+    </div>
+    <div class="closing-quote">«${esc(cierre.citaFinal)}»</div>
+  </div>`;
+  }
   return `
   <div class="plate" style="page-break-after: auto; page-break-before: always;">
     <p class="kicker">Cierre</p>
@@ -489,7 +603,9 @@ export function renderModo1Html(d: PdfDocumentData): string {
     "La promesa",
     "Diferenciadores",
     "Customer Journey",
-    `El Vehículo: ${d.fase_1_6.nombre}`,
+    // Ajuste #3 (A4.1): el TOC usa el nombre propio del método, nunca
+    // "El Vehículo: …".
+    d.fase_1_6.nombre,
     "Entregables",
     "Banco de tesis",
     "Banco de Credibilidad",
@@ -505,7 +621,14 @@ export function renderModo1Html(d: PdfDocumentData): string {
 <style>${baseCss(d.brandColor)}</style>
 </head>
 <body>
-  ${coverPage(d.clientName, d.business, toc)}
+  ${coverPage(d.clientName, d.business, toc, {
+    cliente: d.clientName,
+    eje: EJE_LABEL[d.fase_2_1.tipo] ?? d.fase_2_1.tipo,
+    vehiculo: d.fase_1_6.nombre,
+    caraVisible: d.caraVisible,
+    calendario: d.calendarioMes,
+    modo: d.modoLabel ?? "Modo 1 — Sistema Completo desde Cero",
+  })}
   <div class="page">
     ${ejeBlock(d.fase_2_1, d.fase_2_2)}
     ${parte1Block(d)}
@@ -513,9 +636,9 @@ export function renderModo1Html(d: PdfDocumentData): string {
     ${deseosBlock(d)}
     ${hooksBlock(d)}
     ${magnetsBlock(d.fase_5)}
-    ${calendarBlock(d.fase_6)}
+    ${calendarBlock(d.fase_6, d.clientName)}
   </div>
-  ${closingPage(d.clientName)}
+  ${closingPage(d.clientName, d.fase_6.cierre)}
 </body>
 </html>`;
 }
@@ -526,6 +649,9 @@ export function renderModo2Html(d: {
   business: string;
   brandColor: string;
   monthTitle: string;
+  caraVisible?: string | null;
+  calendarioMes?: string | null;
+  vehiculoNombre?: string | null;
   fase_2_1: Fase21Data;
   fase_2_2: Fase22Data;
   fase_5: Fase5Data;
@@ -543,13 +669,20 @@ export function renderModo2Html(d: {
 <style>${baseCss(d.brandColor)}</style>
 </head>
 <body>
-  ${coverPage(d.clientName, d.monthTitle, toc)}
+  ${coverPage(d.clientName, d.monthTitle, toc, {
+    cliente: d.clientName,
+    eje: EJE_LABEL[d.fase_2_1.tipo] ?? d.fase_2_1.tipo,
+    vehiculo: d.vehiculoNombre,
+    caraVisible: d.caraVisible,
+    calendario: d.calendarioMes,
+    modo: "Modo 2 — Renovación Mensual",
+  })}
   <div class="page">
     ${ejeBlock(d.fase_2_1, d.fase_2_2)}
-    ${calendarBlock(d.fase_6)}
+    ${calendarBlock(d.fase_6, d.clientName)}
     ${magnetsBlock(d.fase_5)}
   </div>
-  ${closingPage(d.clientName)}
+  ${closingPage(d.clientName, d.fase_6.cierre)}
 </body>
 </html>`;
 }
