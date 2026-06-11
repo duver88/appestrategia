@@ -158,7 +158,9 @@ function baseCss(brandColor: string): string {
     font-family: Georgia, serif; font-style: italic; font-size: 14pt;
     line-height: 1.5; border: 1px solid rgba(255,255,255,.45);
     padding: 22px 26px; margin-top: 28px;
+    page-break-inside: avoid; break-inside: avoid;
   }
+  .quote, .card, .explain, .week { break-inside: avoid; }
   `;
 }
 

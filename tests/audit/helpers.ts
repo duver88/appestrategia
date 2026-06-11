@@ -209,13 +209,15 @@ export function pdfSections(): Record<string, unknown> {
       promesaFinal: "Promesa final",
       componentes: { metrica: "clientes", volumen: "10", tiempo: "90 días" },
     },
+    // Corrección owner (p.6): cuerpos DISTINTOS — el validador rechaza
+    // diferenciadores duplicados.
     fase_1_4: {
       diferenciadores: Array.from({ length: 6 }, (_, i) => ({
         titulo: `Diferenciador ${i + 1}`,
-        todoElMundo: "Hace X",
-        problema: "Problema",
-        enCambio: "Nosotros Y",
-        paraQue: "Para Z",
+        todoElMundo: `Hace la práctica común ${i + 1}`,
+        problema: `Genera el problema ${i + 1}`,
+        enCambio: `Nosotros aplicamos el contraste ${i + 1}`,
+        paraQue: `Para lograr el beneficio ${i + 1}`,
       })),
     },
     fase_1_5: {
@@ -274,16 +276,17 @@ export function pdfSections(): Record<string, unknown> {
         explicacion: "Explicación",
       })),
     },
-    // Ajuste #3 (A3): matriz canónica conforme a la fórmula del master —
-    // 3 deseos × 2 perfiles = 6 pares únicos, cada uno con los niveles
-    // 1-5 exactos y la correspondencia nivel→ángulo→uso.
+    // Ajuste #3 (A3) + corrección owner (p.6): matriz canónica — 6 pares
+    // únicos × niveles 1-5, usando EXACTAMENTE los perfiles de fase_1_1
+    // (Perfil 1..5; el par 6 repite Perfil 1 bajo otro deseo).
     fase_4: {
       hooks: Array.from({ length: 30 }, (_, i) => {
         const par = Math.floor(i / 5); // 0..5
         const nivel = ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5;
+        const perfiles = ["Perfil 1", "Perfil 2", "Perfil 3", "Perfil 4", "Perfil 5", "Perfil 1"];
         return {
           deseo: `Deseo ${Math.floor(par / 2) + 1}`,
-          perfil: `Perfil ${par + 1}`,
+          perfil: perfiles[par],
           nivel,
           angulo: nivel <= 2 ? "DOLOR" : "GANANCIA",
           uso: nivel <= 2 ? "ATRACCION" : nivel === 5 ? "CONVERSION" : "NUTRICION",

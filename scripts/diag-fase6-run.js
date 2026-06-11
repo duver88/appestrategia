@@ -10,7 +10,7 @@ const PASS = "diag-pass-1234";
 const TIMEOUT_MS = 7 * 60 * 1000;
 
 const MSG =
-  "Confirmo el FOMO del mes: quedan solo 5 cupos de la mentoría de julio (tipo: cupos limitados), confirmedByClient: true. Y confirmo los CTAs canónicos del proyecto: primario 'Comenta YO' y secundario 'Escríbeme SISTEMA'. Genera ya el calendario completo de los 31 días, sin preguntarme nada más.";
+  "Confirmo el FOMO del mes: quedan solo 5 cupos de la mentoría este mes (tipo: cupos limitados), confirmedByClient: true. Y confirmo los CTAs canónicos del proyecto: primario 'Comenta YO' y secundario 'Escríbeme SISTEMA'. Genera ya el calendario completo de los 31 días, sin preguntarme nada más.";
 
 (async () => {
   const project = await prisma.project.findFirst({

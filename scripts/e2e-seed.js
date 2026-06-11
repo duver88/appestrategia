@@ -120,14 +120,53 @@ const SECTIONS = {
     promesaFinal: "Te ayudo a conseguir 10 clientes online recurrentes en 90 días sin regalar rutinas",
     componentes: { metrica: "clientes online recurrentes", volumen: "10", tiempo: "90 días" },
   },
+  // Corrección owner (p.6): seed realista — 6 contrastes DISTINTOS (el
+  // validador rechaza diferenciadores con el mismo cuerpo).
   fase_1_4: {
-    diferenciadores: Array.from({ length: 6 }, (_, i) => ({
-      titulo: `Diferenciador ${i + 1}`,
-      todoElMundo: "Publica rutinas y transformaciones",
-      problema: "Atrae curiosos que quieren contenido gratis",
-      enCambio: "Construimos contenido que filtra y vende",
-      paraQue: "Para que lleguen clientes listos para pagar",
-    })),
+    diferenciadores: [
+      {
+        titulo: "Contenido que filtra, no que entretiene",
+        todoElMundo: "Publica rutinas y transformaciones",
+        problema: "Atrae curiosos que quieren contenido gratis",
+        enCambio: "Construimos contenido que filtra y vende",
+        paraQue: "Para que lleguen clientes listos para pagar",
+      },
+      {
+        titulo: "Diez clientes bien cobrados, no cien baratos",
+        todoElMundo: "Persigue volumen de alumnos a precio bajo",
+        problema: "Llena la agenda y vacía la energía",
+        enCambio: "Nosotros armamos una cartera corta de clientes premium",
+        paraQue: "Para vivir de 10 clientes sin trabajar 12 horas",
+      },
+      {
+        titulo: "Sistema, no inspiración",
+        todoElMundo: "Publica cuando se le ocurre algo",
+        problema: "La cuenta vive de rachas y muere en silencio",
+        enCambio: "Nosotros seguimos un calendario con lógica de venta",
+        paraQue: "Para que cada semana empuje hacia la conversión",
+      },
+      {
+        titulo: "Oferta clara antes que estética",
+        todoElMundo: "Invierte en feeds bonitos sin oferta definida",
+        problema: "Bonito que no se entiende no se compra",
+        enCambio: "Nosotros definimos promesa y precio antes de publicar",
+        paraQue: "Para que el contenido tenga algo que vender",
+      },
+      {
+        titulo: "Acompañamiento real, no PDF y suerte",
+        todoElMundo: "Vende cursos grabados y desaparece",
+        problema: "El alumno se queda solo en la parte difícil",
+        enCambio: "Nosotros revisamos la ejecución cada semana",
+        paraQue: "Para que el método se aplique y no se archive",
+      },
+      {
+        titulo: "Vender sin perseguir",
+        todoElMundo: "Manda mensajes en frío a desconocidos",
+        problema: "Quema la marca y atrae desconfianza",
+        enCambio: "Nosotros hacemos que el cliente levante la mano comentando",
+        paraQue: "Para que la conversación de venta empiece sola",
+      },
+    ],
   },
   fase_1_5: {
     etapas: Array.from({ length: 7 }, (_, i) => ({
@@ -191,14 +230,22 @@ const SECTIONS = {
       { nombre: "Tranquilidad", nombreReiss: "Tranquilidad", explicacion: "Ingresos previsibles cada mes." },
     ],
   },
-  // Ajuste #3 (A3): matriz conforme a la fórmula del master — 3 deseos ×
-  // 2 perfiles = 6 pares únicos, cada uno con los niveles 1-5 exactos y la
-  // correspondencia nivel→ángulo→uso.
+  // Ajuste #3 (A3) + corrección owner (p.6): matriz conforme a la fórmula
+  // del master — 6 pares únicos × niveles 1-5 — usando EXACTAMENTE los
+  // nombres de los avatares aprobados en fase_1_1 (uno se repite bajo otro
+  // deseo: pares únicos, perfiles reales).
   fase_4: {
     hooks: Array.from({ length: 30 }, (_, i) => {
       const par = Math.floor(i / 5); // 0..5
       const nivel = (i % 5) + 1;
-      const perfiles = ["El saturado", "La recién certificada", "El influencer", "La que volvió", "El escéptico", "El metódico"];
+      const perfiles = [
+        "El saturado de gimnasio",
+        "La recién certificada",
+        "El influencer estancado",
+        "La que volvió",
+        "El escéptico digital",
+        "El saturado de gimnasio", // par 6: mismo avatar bajo otro deseo
+      ];
       return {
         deseo: ["Independencia", "Estatus", "Tranquilidad"][Math.floor(par / 2)],
         perfil: perfiles[par],

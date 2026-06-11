@@ -9,7 +9,13 @@ import {
   type Fase6Cierre,
 } from "@/lib/schemas";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
-import { metricErrors, type MetricContext } from "@/lib/schemas/metric-validators";
+import {
+  metricErrors,
+  echoErrors,
+  monthErrors,
+  cifraSetIsEmpty,
+  type MetricContext,
+} from "@/lib/schemas/metric-validators";
 import {
   ORDEN_MASTER,
   ETIQUETAS_SEMANA_BASE,
@@ -89,6 +95,10 @@ export interface GenerateCalendarOptions {
   caraVisibleNombre?: string;
   /** Ajuste #3 (A1): cifras confirmadas del bank + whitelist de fundamentos. */
   metricas?: MetricContext;
+  /** Corrección owner (p.2): nombre canónico del método (fase_1_6) — el cierre lo usa EXACTO. */
+  metodoNombre?: string;
+  /** Corrección owner (p.4): mes del calendario en minúsculas ("junio"). */
+  mesCalendario?: string;
   /** MODO_2: hooks/ideas del mes anterior prohibidos. */
   prohibido?: string;
   onProgress: (p: CalendarProgress) => void;
@@ -136,6 +146,8 @@ export interface WeekValidationCtx {
   personaVisible?: string;
   /** Ajuste #3 (A1): cifras del bank/whitelist para validar cada día. */
   metricas?: MetricContext;
+  /** Corrección owner (p.4): mes del calendario ("junio"). */
+  mes?: string;
 }
 
 export function validateWeek(
@@ -283,6 +295,17 @@ export function validateWeek(
     }
   }
 
+  // Corrección owner (p.3): cero eco de instrucción en textos visibles
+  // (siempre activo) + (p.4) coherencia de mes cuando se conoce.
+  for (const d of dias) {
+    errors.push(...echoErrors(d.hook, `Día ${d.dia} (hook)`));
+    errors.push(...echoErrors(d.ideaCentral, `Día ${d.dia} (idea central)`));
+    if (ctx.mes) {
+      errors.push(...monthErrors(d.hook, `Día ${d.dia} (hook)`, ctx.mes));
+      errors.push(...monthErrors(d.ideaCentral, `Día ${d.dia} (idea central)`, ctx.mes));
+    }
+  }
+
   // Diversidad acumulada: con k semanas fijadas deben existir los mínimos.
   const all = [...otherDays, ...dias];
   const k = new Set(all.map((d) => Math.min(3, Math.floor((d.dia - 1) / 7)))).size;
@@ -396,6 +419,7 @@ function weekPrompt(args: {
   magnets: CalendarMagnet[];
   caraVisibleNombre?: string;
   metricas?: MetricContext;
+  mes?: string;
   otherDays: Dia[]; // días del RESTO del mes ya fijados (antes y después)
   prohibido?: string;
   extraErrors?: string[];
@@ -519,11 +543,13 @@ function weekPrompt(args: {
       : `En formatos CON CARA pon persona = "${caraVisibleNombre ?? "Cara visible"}"; en formatos sin cara, "Narración AI" o "Marca". Puedes variar (p. ej. testimonial de cliente) solo si el contexto lo justifica.`,
     ``,
     `# CIFRAS DE RESULTADO (el servidor las verifica — regla sagrada)`,
-    `Toda cifra de RESULTADO (porcentajes de mejora, citas/leads/ventas logradas, tiempos de resultado, montos) debe salir de un caso CONFIRMADO del Credibility Bank del contexto o ser un parámetro aprobado del negocio (precio, promesa). PROHIBIDO inventar cifras plausibles.`,
-    `Si el dato real no existe, la cifra va en brackets INTEGRADA con naturalidad en la frase — «mis clientes consiguen [X] citas en [X] días» — y la ideaCentral cierra con la nota canónica al cliente, tal cual: «Placeholder hasta documentar con números reales.» Nada más.`,
-    `El hook y la ideaCentral se publican TAL CUAL: jamás escribas en ellos lenguaje de instrucciones o de sistema — nada de "Sin inventar cifras", "según la regla", "brackets", "el servidor", "validación" ni explicaciones de por qué la cifra va en [X].`,
-    metricas && metricas.confirmadas.size === 0
+    `Toda cifra de RESULTADO (porcentajes, citas/leads/ventas/clientes logrados, tiempos de resultado, montos en CUALQUIER moneda — $, €, USD —, "facturar/ganar X", rangos "de X a Y") debe salir de un caso CONFIRMADO del Credibility Bank del contexto o ser un parámetro aprobado del negocio CON LA MISMA UNIDAD (la promesa "10 clientes en 90 días" NO autoriza "10 leads en un día"). PROHIBIDO inventar cifras plausibles.`,
+    `Si el dato real no existe, la cifra va en brackets INTEGRADA con naturalidad en la frase y NADA MÁS — «mis clientes consiguen [X] clientes en 90 días», «pasó de pagar $[X] a [X]» — la frase debe leerse como contenido publicable. PROHIBIDO escribir meta-notas o lenguaje de sistema en hook/ideaCentral: jamás "Placeholder", "Sin inventar cifras", "según la regla", "brackets" ni explicaciones de por qué la cifra va en [X]. El servidor rechaza el día completo si aparecen.`,
+    metricas && cifraSetIsEmpty(metricas.confirmadas)
       ? `OJO: el Credibility Bank de este proyecto NO tiene ninguna métrica confirmada — toda cifra de resultado de casos va en brackets, sin excepción.`
+      : ``,
+    args.mes
+      ? `# MES DEL CALENDARIO\nEste calendario es de ${args.mes}. Cualquier mención de mes (en hooks, ideas o FOMO) usa ${args.mes} — jamás otro mes.`
       : ``,
     ``,
     `# IDIOMA (regla dura)`,
@@ -592,30 +618,64 @@ function cierrePrompt(opts: GenerateCalendarOptions, cal: Fase6Data): string {
     `FOMO de la semana 4: ${cal.fomo.tipo} — ${cal.fomo.descripcion}`,
     `CTAs de conversión: "${opts.ctas.primario}" / "${opts.ctas.secundario}"`,
     `Organic magnets del mes: ${magnets || "—"}`,
+    opts.mesCalendario ? `Mes del calendario: ${opts.mesCalendario} (cualquier mención de mes usa ESTE).` : ``,
+    opts.metodoNombre
+      ? `NOMBRE DEL MÉTODO (aprobado por el cliente): "${opts.metodoNombre}" — úsalo EXACTO, tal cual está escrito. PROHIBIDO renombrarlo, parafrasearlo o llamarlo "Vehículo" (jerga interna que JAMÁS aparece en el documento).`
+      : ``,
     ``,
     `# LOS 5 CAMPOS (cada uno 2-4 frases, español impecable con tildes)`,
     `1. queEsElDocumento — qué es este documento y para qué existe, nombrando al cliente/marca y su acción de conversión concreta (estilo: "Todo lo que está aquí existe para una sola cosa: que la persona correcta… y tome la decisión de…").`,
-    `2. logicaVehiculo — el método propio (vehículo) como lógica que organiza el contenido: qué verdades instala cada pieza (usa los pilares/tesis del proyecto).`,
+    `2. logicaVehiculo — el método propio${opts.metodoNombre ? ` ("${opts.metodoNombre}")` : ""} como lógica que organiza el contenido: qué verdades instala cada pieza (usa los pilares/tesis del proyecto). Nombra el método por su nombre exacto.`,
     `3. decisionDelMes — la decisión editorial particular de ESTE mes: a qué perfiles alterna el calendario, por qué, y cómo convive el lenguaje con el precio/entrada del negocio. Lo más personalizado de todo.`,
     `4. rolMagnets — el rol de los organic magnets: comentar la keyword = levantar la mano; desde ahí el sistema trabaja.`,
-    `5. citaFinal — UNA cita posicionadora en la voz de la marca, lista para caja destacada, construida con el patrón: "El mercado no necesita otro/a [categoría genérica]. Necesita uno/a que [diferenciadores REALES aprobados del proyecto]. Eso es [marca/método]." Usa los diferenciadores del contexto, jamás inventes credenciales.`,
+    `5. citaFinal — UNA cita posicionadora en la voz de la marca, lista para caja destacada, construida con el patrón: "El mercado no necesita otro/a [categoría genérica]. Necesita uno/a que [diferenciadores REALES aprobados del proyecto]. Eso es [marca o el nombre exacto del método]." Usa los diferenciadores del contexto, jamás inventes credenciales.`,
     ``,
     `# REGLAS DURAS`,
     `- Cifras: SOLO las del contexto aprobado; ninguna cifra nueva. Si citas una pendiente, en brackets ("[X]%").`,
-    `- Sin jerga interna (nada de "fase_x", "schema", "tool").`,
+    `- Sin jerga interna (nada de "fase_x", "schema", "tool", "Vehículo") ni meta-notas ("Placeholder", "Sin inventar cifras").`,
     `- La voz del documento (voseo/tuteo/ustedeo) es la del tono aprobado del proyecto: no la mezcles.`,
   ].join("\n");
+}
+
+/** Chequeos de contenido del cierre (corrección owner p.2/p.3/p.4). */
+function cierreErrors(cierre: Fase6Cierre, opts: GenerateCalendarOptions): string[] {
+  const texto = [
+    cierre.queEsElDocumento,
+    cierre.logicaVehiculo,
+    cierre.decisionDelMes,
+    cierre.rolMagnets,
+    cierre.citaFinal,
+  ].join(" ");
+  const errors = [...echoErrors(texto, "Cierre")];
+  if (/veh[ií]culo/i.test(texto)) {
+    errors.push('El cierre usa la palabra "Vehículo": nombra el método por su nombre propio aprobado.');
+  }
+  if (opts.metodoNombre && !texto.toLowerCase().includes(opts.metodoNombre.toLowerCase())) {
+    errors.push(`El cierre no usa el nombre aprobado del método ("${opts.metodoNombre}"): úsalo EXACTO.`);
+  }
+  if (opts.mesCalendario) errors.push(...monthErrors(texto, "Cierre", opts.mesCalendario));
+  return errors;
 }
 
 async function generateCierre(
   opts: GenerateCalendarOptions,
   cal: Fase6Data,
 ): Promise<Fase6Cierre> {
-  const prompt = cierrePrompt(opts, cal);
-  if (opts.generateCierreFn) return opts.generateCierreFn({ prompt });
+  const basePrompt = cierrePrompt(opts, cal);
+  if (opts.generateCierreFn) {
+    const cierre = await opts.generateCierreFn({ prompt: basePrompt });
+    const errors = cierreErrors(cierre, opts);
+    if (errors.length > 0) throw new Error(`Cierre inválido: ${errors.join(" ")}`);
+    return cierre;
+  }
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let feedback: string[] = [];
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      const prompt =
+        feedback.length > 0
+          ? `${basePrompt}\n\n# CORRIGE ESTOS ERRORES DEL INTENTO ANTERIOR\n${feedback.map((e) => `- ${e}`).join("\n")}`
+          : basePrompt;
       const result = await generateObject({
         model: opts.model,
         schema: fase6CierreSchema,
@@ -623,7 +683,9 @@ async function generateCierre(
         maxOutputTokens: MAX_OUTPUT_TOKENS_CIERRE,
       });
       await logWeekUsage(opts, result.usage);
-      return result.object;
+      feedback = cierreErrors(result.object, opts);
+      if (feedback.length === 0) return result.object;
+      lastErr = new Error(`Cierre inválido: ${feedback.join(" ")}`);
     } catch (err) {
       lastErr = err;
     }
@@ -754,6 +816,7 @@ export async function generateCalendarInWeeks(
               magnets: opts.magnets ?? [],
               caraVisibleNombre: opts.caraVisibleNombre,
               metricas: opts.metricas,
+              mes: opts.mesCalendario,
               otherDays,
               prohibido: opts.prohibido,
               extraErrors: errors,
@@ -773,6 +836,7 @@ export async function generateCalendarInWeeks(
         magnets: opts.magnets,
         personaVisible: opts.personaVisible,
         metricas: opts.metricas,
+        mes: opts.mesCalendario,
       });
       if (errors.length === 0) {
         weeks[w] = dias;
@@ -825,6 +889,8 @@ export async function generateCalendarInWeeks(
       personaVisible: opts.personaVisible,
       magnets: opts.magnets,
       metricas: opts.metricas,
+      metodoNombre: opts.metodoNombre,
+      mes: opts.mesCalendario,
     });
     if (globalErrors.length === 0) {
       // Ajuste #3 (B5): cierre personalizado — 5ª llamada del pipeline.

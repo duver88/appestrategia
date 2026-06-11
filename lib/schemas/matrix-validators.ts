@@ -1,4 +1,16 @@
-import type { Fase4Data } from "./index";
+import type { Fase14Data, Fase4Data } from "./index";
+
+/**
+ * Corrección del owner (punto 6): los perfiles y deseos de la matriz deben
+ * existir en las secciones aprobadas — un perfil inventado ("El metódico")
+ * rompe la trazabilidad avatar→hook→calendario.
+ */
+export interface MatrizContext {
+  /** Nombres de perfiles aprobados (fase_1_1). */
+  perfiles?: string[];
+  /** Nombres de deseos aprobados (fase_3). */
+  deseos?: string[];
+}
 
 /**
  * Ajuste #3 — A3: la fórmula del master para la matriz de 30 hooks.
@@ -15,8 +27,31 @@ import type { Fase4Data } from "./index";
  * únicos, cada uno recorriendo los niveles {1,2,3,4,5} exactamente una vez
  * (30 ÷ 5 niveles = 6 pares).
  */
-export function validateMatriz(data: Fase4Data): string[] {
+export function validateMatriz(data: Fase4Data, ctx: MatrizContext = {}): string[] {
   const errors: string[] = [];
+  const norm = (s: string) => s.trim().toLowerCase();
+
+  // Corrección owner (p.6): perfiles/deseos solo de los aprobados.
+  if (ctx.perfiles && ctx.perfiles.length > 0) {
+    const aprobados = new Set(ctx.perfiles.map(norm));
+    for (const p of new Set(data.hooks.map((h) => h.perfil))) {
+      if (!aprobados.has(norm(p))) {
+        errors.push(
+          `El perfil «${p}» no existe entre los avatares aprobados (${ctx.perfiles.join(", ")}): usa EXACTAMENTE los nombres de la sección de nicho.`,
+        );
+      }
+    }
+  }
+  if (ctx.deseos && ctx.deseos.length > 0) {
+    const aprobados = new Set(ctx.deseos.map(norm));
+    for (const d of new Set(data.hooks.map((h) => h.deseo))) {
+      if (!aprobados.has(norm(d))) {
+        errors.push(
+          `El deseo «${d}» no existe entre los deseos profundos aprobados (${ctx.deseos.join(", ")}).`,
+        );
+      }
+    }
+  }
 
   data.hooks.forEach((h, i) => {
     const fila = `Fila ${i + 1} («${h.hook.slice(0, 50)}…»)`;
@@ -62,5 +97,29 @@ export function validateMatriz(data: Fase4Data): string[] {
       );
     }
   }
+  return errors;
+}
+
+/**
+ * Corrección del owner (punto 6): detector de ítems duplicados en los
+ * diferenciadores — 6 diferenciadores con el mismo cuerpo no diferencian
+ * nada. Dos ítems son duplicados si coinciden sus 4 campos de contraste
+ * (normalizados); el título no cuenta.
+ */
+export function validateDiferenciadores(data: Fase14Data): string[] {
+  const errors: string[] = [];
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const seen = new Map<string, number>();
+  data.diferenciadores.forEach((d, i) => {
+    const key = [d.todoElMundo, d.problema, d.enCambio, d.paraQue].map(norm).join("¦");
+    const prev = seen.get(key);
+    if (prev !== undefined) {
+      errors.push(
+        `Los diferenciadores ${prev + 1} («${data.diferenciadores[prev].titulo}») y ${i + 1} («${d.titulo}») tienen el MISMO contenido en sus 4 campos: cada diferenciador debe ser un contraste distinto y real.`,
+      );
+    } else {
+      seen.set(key, i);
+    }
+  });
   return errors;
 }

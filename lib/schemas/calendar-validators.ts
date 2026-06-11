@@ -1,6 +1,8 @@
 import type { Fase6Data } from "./index";
 import {
   metricErrors,
+  echoErrors,
+  monthErrors,
   hasUnbracketedNumbers,
   type MetricContext,
 } from "./metric-validators";
@@ -39,6 +41,18 @@ export interface CalendarValidationContext {
    * hooks/ideas sin respaldo ni brackets es rechazo.
    */
   metricas?: MetricContext;
+  /**
+   * Corrección del owner (punto 2): nombre canónico del método (fase_1_6).
+   * Si está presente y el calendario trae cierre, el cierre debe usarlo
+   * EXACTO y jamás la palabra "Vehículo".
+   */
+  metodoNombre?: string;
+  /**
+   * Corrección del owner (punto 4): mes del calendario en minúsculas
+   * ("junio"). Si está presente, ninguna mención de mes en textos visibles
+   * puede ser distinta.
+   */
+  mes?: string;
 }
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -239,10 +253,52 @@ export function validateCalendar(
     }
   }
 
-  // ——— Ajuste #3 (B5): si el cierre existe, la cita final no puede estar
-  // vacía (los calendarios viejos sin cierre siguen siendo válidos) ———
+  // ——— Corrección del owner (punto 3): cero eco de instrucción en textos
+  // visibles (siempre activo — los brackets [X] siguen siendo válidos) ———
+  const cierreTexto = data.cierre
+    ? [
+        data.cierre.queEsElDocumento,
+        data.cierre.logicaVehiculo,
+        data.cierre.decisionDelMes,
+        data.cierre.rolMagnets,
+        data.cierre.citaFinal,
+      ].join(" ")
+    : "";
+  for (const d of dias) {
+    errors.push(...echoErrors(d.hook, `Día ${d.dia} (hook)`));
+    errors.push(...echoErrors(d.ideaCentral, `Día ${d.dia} (idea central)`));
+  }
+  if (cierreTexto) errors.push(...echoErrors(cierreTexto, "Cierre"));
+
+  // ——— Corrección del owner (punto 4): coherencia de mes ———
+  if (ctx.mes) {
+    errors.push(...monthErrors(data.fomo.descripcion, "FOMO", ctx.mes));
+    for (const d of dias) {
+      errors.push(...monthErrors(d.hook, `Día ${d.dia} (hook)`, ctx.mes));
+      errors.push(...monthErrors(d.ideaCentral, `Día ${d.dia} (idea central)`, ctx.mes));
+    }
+    if (cierreTexto) errors.push(...monthErrors(cierreTexto, "Cierre", ctx.mes));
+  }
+
+  // ——— Ajuste #3 (B5) + corrección del owner (punto 2): el cierre usa el
+  // nombre canónico del método y jamás la jerga "Vehículo" ———
   if (data.cierre && data.cierre.citaFinal.trim().length < 20) {
     errors.push("El cierre personalizado existe pero la cita final está vacía o es trivial.");
+  }
+  if (cierreTexto) {
+    if (/veh[ií]culo/i.test(cierreTexto)) {
+      errors.push(
+        'El cierre usa la palabra "Vehículo" (jerga interna): el método se nombra por su nombre propio aprobado.',
+      );
+    }
+    if (
+      ctx.metodoNombre &&
+      !cierreTexto.toLowerCase().includes(ctx.metodoNombre.toLowerCase())
+    ) {
+      errors.push(
+        `El cierre no menciona el nombre aprobado del método ("${ctx.metodoNombre}"): úsalo EXACTO, sin renombrarlo.`,
+      );
+    }
   }
 
   return errors;

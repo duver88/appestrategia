@@ -80,10 +80,11 @@ describe("A1/A2 — gate de aprobación del calendario (integración)", () => {
     expect(section?.status).toBe("DRAFT");
   });
 
-  it("la misma cifra en brackets con nota → aprobado (y avanza a REVIEW)", async () => {
+  it("la misma cifra en brackets integrada natural (sin meta-nota) → aprobado (y avanza a REVIEW)", async () => {
     const cal = validCalendar();
     cal.dias[25].hook = "Un consultorio perdía el [X]% de sus leads. Ya no.";
-    cal.dias[25].ideaCentral = "Placeholder hasta documentar con números reales.";
+    cal.dias[25].ideaCentral =
+      "El caso del consultorio: de perder [X]% de leads a agendar mientras duerme.";
     await draftFase6(cal);
     const res = await approve();
     expect(res.status).toBe(200);

@@ -1,9 +1,17 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { SECTION_SCHEMAS, type Fase24Data, type Fase4Data, type Fase5Data } from "@/lib/schemas";
+import {
+  SECTION_SCHEMAS,
+  type Fase11Data,
+  type Fase14Data,
+  type Fase24Data,
+  type Fase3Data,
+  type Fase4Data,
+  type Fase5Data,
+} from "@/lib/schemas";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
-import { validateMatriz } from "@/lib/schemas/matrix-validators";
+import { validateMatriz, validateDiferenciadores } from "@/lib/schemas/matrix-validators";
 import { validateMagnets } from "@/lib/schemas/magnet-validators";
 import {
   buildWhitelist,
@@ -79,10 +87,41 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Corrección owner (p.6): diferenciadores sin ítems duplicados.
+  if (phaseId === "fase_1_4") {
+    const difErrors = validateDiferenciadores(valid.data as Fase14Data);
+    if (difErrors.length > 0) {
+      return Response.json(
+        { error: `Los diferenciadores no pasan la verificación: ${difErrors.join(" ")}` },
+        { status: 422 },
+      );
+    }
+  }
+
   // Ajuste #3 (A3): la matriz de 30 hooks jamás se aprueba si viola la
-  // fórmula del master (nivel↔ángulo↔uso, cobertura por pares).
+  // fórmula del master (nivel↔ángulo↔uso, cobertura por pares) o usa
+  // perfiles/deseos que no existen en las secciones aprobadas (p.6).
   if (phaseId === "fase_4") {
-    const matErrors = validateMatriz(valid.data as Fase4Data);
+    const ctxSections = await prisma.section.findMany({
+      where: {
+        projectId:
+          project.mode === "MODO_2" && project.parentId
+            ? { in: [projectId, project.parentId] }
+            : projectId,
+        phaseId: { in: ["fase_1_1", "fase_3"] },
+        status: "APPROVED",
+      },
+    });
+    const f11 = ctxSections.find((s) => s.phaseId === "fase_1_1");
+    const f3 = ctxSections.find((s) => s.phaseId === "fase_3");
+    const matErrors = validateMatriz(valid.data as Fase4Data, {
+      perfiles: f11
+        ? (JSON.parse(f11.data) as Fase11Data).perfiles.map((p) => p.nombre)
+        : undefined,
+      deseos: f3
+        ? (JSON.parse(f3.data) as Fase3Data).deseos.map((d) => d.nombre)
+        : undefined,
+    });
     if (matErrors.length > 0) {
       return Response.json(
         { error: `La matriz no pasa la verificación: ${matErrors.join(" ")}` },
@@ -143,6 +182,9 @@ export async function POST(req: NextRequest) {
         confirmadas: confirmedBankCifras(byPhase.get("fase_2_4") as Fase24Data | undefined),
         whitelist: buildWhitelist(whitelistTexts),
       },
+      // Corrección owner (p.2): el cierre nombra el método aprobado y nunca
+      // "Vehículo". (El mes solo se valida en generación, donde se conoce.)
+      metodoNombre: (byPhase.get("fase_1_6") as { nombre?: string } | undefined)?.nombre,
     });
     if (calErrors.length > 0) {
       return Response.json(

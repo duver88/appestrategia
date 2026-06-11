@@ -20,7 +20,7 @@ import {
   type CalendarProgress,
 } from "@/lib/calendar/generate";
 import { validateCalendar } from "@/lib/schemas/calendar-validators";
-import { validateMatriz } from "@/lib/schemas/matrix-validators";
+import { validateMatriz, validateDiferenciadores } from "@/lib/schemas/matrix-validators";
 import { validateMagnets } from "@/lib/schemas/magnet-validators";
 import {
   buildWhitelist,
@@ -30,7 +30,14 @@ import {
   metricErrors,
   type MetricContext,
 } from "@/lib/schemas/metric-validators";
-import type { Fase24Data, Fase4Data, Fase5Data } from "@/lib/schemas";
+import type {
+  Fase11Data,
+  Fase14Data,
+  Fase24Data,
+  Fase3Data,
+  Fase4Data,
+  Fase5Data,
+} from "@/lib/schemas";
 import { ACTIVE_PHASES, getPhase } from "@/lib/state-machine/phases";
 import { canAccessClient, getSessionUser } from "@/lib/authz";
 import { requireActiveMembership } from "@/lib/membership";
@@ -186,6 +193,17 @@ export async function POST(req: NextRequest) {
   const calendarMagnets =
     (approved.find((s) => s.phaseId === "fase_5")?.data as Fase5Data | undefined)
       ?.magnets ?? [];
+  // Corrección owner (p.2/p.4): nombre canónico del método y mes del calendario.
+  const metodoNombre = (
+    approved.find((s) => s.phaseId === "fase_1_6")?.data as
+      | { nombre?: string }
+      | undefined
+  )?.nombre;
+  const MESES_MIN = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  ];
+  const mesCalendario = MESES_MIN[new Date().getMonth()];
 
   // Ajuste #3 (A1): cifras confirmadas del bank + lista blanca de
   // parámetros aprobados (precio, promesa, vehículo, entregables).
@@ -267,6 +285,8 @@ export async function POST(req: NextRequest) {
                   personaVisible,
                   magnets: calendarMagnets,
                   caraVisibleNombre,
+                  metodoNombre,
+                  mesCalendario,
                   // FOMO confirmado → sus números son parámetros aprobados.
                   metricas: buildMetricCtx(
                     fomo.confirmedByClient ? [fomo.descripcion] : [],
@@ -308,17 +328,34 @@ export async function POST(req: NextRequest) {
               return { ok: false, errors };
             }
           }
-          // Ajuste #3 (A3 + A1): la matriz cumple la fórmula del master y
-          // sus hooks no inventan cifras de resultado.
+          // Ajuste #3 (A3 + A1): la matriz cumple la fórmula del master,
+          // usa perfiles/deseos APROBADOS y no inventa cifras de resultado.
           if (phaseId === "fase_4") {
             const matriz = input as Fase4Data;
             const metricCtx = buildMetricCtx();
+            const perfiles = (
+              approved.find((s) => s.phaseId === "fase_1_1")?.data as
+                | Fase11Data
+                | undefined
+            )?.perfiles.map((p) => p.nombre);
+            const deseos = (
+              approved.find((s) => s.phaseId === "fase_3")?.data as
+                | Fase3Data
+                | undefined
+            )?.deseos.map((d) => d.nombre);
             const errors = [
-              ...validateMatriz(matriz),
+              ...validateMatriz(matriz, { perfiles, deseos }),
               ...matriz.hooks.flatMap((h, i) =>
                 metricErrors(h.hook, `Hook ${i + 1} de la matriz`, metricCtx),
               ),
             ];
+            if (errors.length > 0) {
+              return { ok: false, errors };
+            }
+          }
+          // Corrección owner (p.6): diferenciadores sin ítems duplicados.
+          if (phaseId === "fase_1_4") {
+            const errors = validateDiferenciadores(input as Fase14Data);
             if (errors.length > 0) {
               return { ok: false, errors };
             }

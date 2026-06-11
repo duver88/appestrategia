@@ -142,8 +142,9 @@ Todos los días de conversión usarán EXACTAMENTE uno de los dos; los días con
 - Español impecable con TODAS las tildes.
 
 ## Cifras de resultado y magnets (el servidor los verifica)
-- Toda cifra de RESULTADO en hooks/ideas (porcentajes, citas/leads logradas, tiempos, montos) debe salir de un caso CONFIRMADO del Credibility Bank o ser un parámetro aprobado del negocio. Si no existe el dato real, la cifra va en brackets INTEGRADA con naturalidad en la frase («mis clientes consiguen [X] citas en [X] días») y la idea central cierra con la nota canónica al cliente, tal cual: «Placeholder hasta documentar con números reales.» Si la idea marca placeholder, el hook del día también lleva su cifra en brackets — nunca solo la idea.
-- El hook y la idea central se publican TAL CUAL: jamás escribas en ellos lenguaje de instrucciones o de sistema («Sin inventar cifras», «según la regla», «brackets», «el servidor»…) — eso es maquinaria interna, no contenido.
+- Toda cifra de RESULTADO en hooks/ideas — porcentajes, citas/leads/ventas/clientes logrados, tiempos de resultado, montos en CUALQUIER moneda ($, €, USD), «facturar/ganar X», rangos «de X a Y» — debe salir de un caso CONFIRMADO del Credibility Bank o ser un parámetro aprobado del negocio CON LA MISMA UNIDAD: la promesa «10 clientes en 90 días» NO autoriza «10 leads en un día».
+- Si no existe el dato real, la cifra va en brackets INTEGRADA con naturalidad en la frase y NADA MÁS: «mis clientes consiguen [X] clientes en 90 días», «pasó de pagar $[X] a [X]». La frase debe leerse como contenido publicable. PROHIBIDAS las meta-notas y el lenguaje de sistema en hook/idea: jamás «Placeholder», «Sin inventar cifras», «según la regla», «brackets» — el servidor rechaza el día completo si aparecen. Si la idea lleva una cifra en brackets, el hook del día también — nunca solo la idea.
+- Coherencia de mes: el calendario tiene UN mes; cualquier mención de mes en hooks, ideas o FOMO usa ese mes — jamás otro (el servidor lo verifica).
 - Los días de cada magnet son los `diasAplica` aprobados en la Parte 5 — el sistema los asigna tal cual; si el cliente quiere moverlos, primero se corrige la sección de magnets.
 
 ## Salida
